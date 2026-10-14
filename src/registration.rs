@@ -7,24 +7,22 @@
 //! Output via `--print-registration` flag. See `sentin8/design/sentin8-service-self-registration-design.md`.
 
 use sentin8::registration::{
-    AdminScope, AdminUi, AdminUiPage, AuditFinding, ErrorCode, M2mGrant, PgRole, Registration,
-    PolicySetDecl, RelationDecl, ServiceActionEntry, SqlMigration,
+    AdminScope, AdminUi, AdminUiPage, AuditFinding, ErrorCode, M2mGrant, PgRole, PolicySetDecl,
+    Registration, RelationDecl, ServiceActionEntry, SqlMigration,
 };
 use utoipa::OpenApi;
 
-const PG_ROLES: &[PgRole] = &[
-    PgRole {
-        scope: "bank8:compliance:read,bank8:compliance:write",
-        role: "bank8_compliance_service",
-        bypass_rls: false,
-        // Grants live in the bank8 vertical database only (DBX §6.6
-        // database-per-vertical, schema-per-service).
-        database: "bank8",
-        // Compliance owns all its reads — inputs arrive as events, never
-        // cross-schema grants (compliance DESIGN.md §8).
-        cross_schema_grants: &[],
-    },
-];
+const PG_ROLES: &[PgRole] = &[PgRole {
+    scope: "bank8:compliance:read,bank8:compliance:write",
+    role: "bank8_compliance_service",
+    bypass_rls: false,
+    // Grants live in the bank8 vertical database only (DBX §6.6
+    // database-per-vertical, schema-per-service).
+    database: "bank8",
+    // Compliance owns all its reads — inputs arrive as events, never
+    // cross-schema grants (compliance DESIGN.md §8).
+    cross_schema_grants: &[],
+}];
 
 /// Workload scope grants (self-registration design §3.11). One entry per
 /// workload this service presents a certificate for.
@@ -38,7 +36,11 @@ const PG_ROLES: &[PgRole] = &[
 const M2M_GRANTS: &[M2mGrant] = &[
     M2mGrant {
         workload: "bank8:compliance",
-        scopes: &["sentin8:bus:produce", "sentin8:bus:consume", "sentin8:stat:measure"],
+        scopes: &[
+            "sentin8:bus:produce",
+            "sentin8:bus:consume",
+            "sentin8:stat:measure",
+        ],
     },
     // Shield hot-reload consumer (BUSPOLICY-1 — see bank8-reporting).
     M2mGrant {
@@ -47,7 +49,11 @@ const M2M_GRANTS: &[M2mGrant] = &[
     },
     M2mGrant {
         workload: "compliance",
-        scopes: &["sentin8:bus:produce", "sentin8:bus:consume", "sentin8:stat:measure"],
+        scopes: &[
+            "sentin8:bus:produce",
+            "sentin8:bus:consume",
+            "sentin8:stat:measure",
+        ],
     },
     M2mGrant {
         workload: "compliance-audit",
@@ -60,31 +66,105 @@ const M2M_GRANTS: &[M2mGrant] = &[
 ];
 
 const ADMIN_SCOPES: &[AdminScope] = &[
-    AdminScope::Typed { role: "bank8:compliance:admin", scope: "bank8:compliance:kyc:read" },
-    AdminScope::Typed { role: "bank8:compliance:admin", scope: "bank8:compliance:kyc:write" },
-    AdminScope::Typed { role: "bank8:compliance:admin", scope: "bank8:compliance:alerts:read" },
-    AdminScope::Typed { role: "bank8:compliance:admin", scope: "bank8:compliance:alerts:write" },
-    AdminScope::Typed { role: "bank8:compliance:admin", scope: "bank8:compliance:cases:read" },
-    AdminScope::Typed { role: "bank8:compliance:admin", scope: "bank8:compliance:cases:write" },
+    AdminScope::Typed {
+        role: "bank8:compliance:admin",
+        scope: "bank8:compliance:kyc:read",
+    },
+    AdminScope::Typed {
+        role: "bank8:compliance:admin",
+        scope: "bank8:compliance:kyc:write",
+    },
+    AdminScope::Typed {
+        role: "bank8:compliance:admin",
+        scope: "bank8:compliance:alerts:read",
+    },
+    AdminScope::Typed {
+        role: "bank8:compliance:admin",
+        scope: "bank8:compliance:alerts:write",
+    },
+    AdminScope::Typed {
+        role: "bank8:compliance:admin",
+        scope: "bank8:compliance:cases:read",
+    },
+    AdminScope::Typed {
+        role: "bank8:compliance:admin",
+        scope: "bank8:compliance:cases:write",
+    },
     // Policy-admin surface (policy design §3.6; principles §6.0b per-service scope).
-    AdminScope::Typed { role: "bank8:compliance:admin", scope: "bank8:compliance:policy:read" },
-    AdminScope::Typed { role: "bank8:compliance:admin", scope: "bank8:compliance:policy:write" },
+    AdminScope::Typed {
+        role: "bank8:compliance:admin",
+        scope: "bank8:compliance:policy:read",
+    },
+    AdminScope::Typed {
+        role: "bank8:compliance:admin",
+        scope: "bank8:compliance:policy:write",
+    },
 ];
 
 const ERROR_CODES: &[ErrorCode] = &[
-    ErrorCode { enum_name: "ComplianceValidationFailed", error_code: "compliance_validation_failed", status_code: 422 },
-    ErrorCode { enum_name: "ComplianceConflict", error_code: "compliance_conflict", status_code: 409 },
+    ErrorCode {
+        enum_name: "ComplianceValidationFailed",
+        error_code: "compliance_validation_failed",
+        status_code: 422,
+    },
+    ErrorCode {
+        enum_name: "ComplianceConflict",
+        error_code: "compliance_conflict",
+        status_code: 409,
+    },
 ];
 
 const ADMIN_UI_PAGES: &[AdminUiPage] = &[
-    AdminUiPage { route: "overview", label: "Overview", ui_endpoint: "/v1/admin/ui/overview", data_endpoint: "/v1/admin/overview", icon: "0xe1b1" },
-    AdminUiPage { route: "alerts", label: "Alerts", ui_endpoint: "/v1/admin/ui/alerts", data_endpoint: "/v1/admin/overview", icon: "0xe7f4" },
-    AdminUiPage { route: "cases", label: "Cases", ui_endpoint: "/v1/admin/ui/cases", data_endpoint: "/v1/admin/overview", icon: "0xe2c8" },
+    AdminUiPage {
+        route: "overview",
+        label: "Overview",
+        ui_endpoint: "/v1/admin/ui/overview",
+        data_endpoint: "/v1/admin/overview",
+        icon: "0xe1b1",
+    },
+    AdminUiPage {
+        route: "alerts",
+        label: "Alerts",
+        ui_endpoint: "/v1/admin/ui/alerts",
+        data_endpoint: "/v1/admin/overview",
+        icon: "0xe7f4",
+    },
+    AdminUiPage {
+        route: "cases",
+        label: "Cases",
+        ui_endpoint: "/v1/admin/ui/cases",
+        data_endpoint: "/v1/admin/overview",
+        icon: "0xe2c8",
+    },
     // Sentin8:Policy admin surface (§3.6, post pattern).
-    AdminUiPage { route: "policy-sets", label: "Policy Sets", ui_endpoint: "/v1/admin/ui/policy-sets", data_endpoint: "/v1/admin/policy-sets", icon: "0xe8b8" },
-    AdminUiPage { route: "policy-decisions", label: "Policy Decisions", ui_endpoint: "/v1/admin/ui/policy-decisions", data_endpoint: "/v1/admin/policy-decisions", icon: "0xf070" },
-    AdminUiPage { route: "relations", label: "Relations", ui_endpoint: "/v1/admin/ui/relations", data_endpoint: "/v1/admin/relations", icon: "0xe572" },
-    AdminUiPage { route: "attributes", label: "Attributes", ui_endpoint: "/v1/admin/ui/attributes", data_endpoint: "/v1/admin/attributes", icon: "0xe8d3" },
+    AdminUiPage {
+        route: "policy-sets",
+        label: "Policy Sets",
+        ui_endpoint: "/v1/admin/ui/policy-sets",
+        data_endpoint: "/v1/admin/policy-sets",
+        icon: "0xe8b8",
+    },
+    AdminUiPage {
+        route: "policy-decisions",
+        label: "Policy Decisions",
+        ui_endpoint: "/v1/admin/ui/policy-decisions",
+        data_endpoint: "/v1/admin/policy-decisions",
+        icon: "0xf070",
+    },
+    AdminUiPage {
+        route: "relations",
+        label: "Relations",
+        ui_endpoint: "/v1/admin/ui/relations",
+        data_endpoint: "/v1/admin/relations",
+        icon: "0xe572",
+    },
+    AdminUiPage {
+        route: "attributes",
+        label: "Attributes",
+        ui_endpoint: "/v1/admin/ui/attributes",
+        data_endpoint: "/v1/admin/attributes",
+        icon: "0xe8d3",
+    },
 ];
 
 /// Default declarative policy set (Sentin8:Policy design §3.2/§3.4,
@@ -149,19 +229,18 @@ const AUDIT_FINDINGS: &[AuditFinding] = &[
     },
 ];
 
-const SERVICE_ACTIONS: &[ServiceActionEntry] = &[
-    ServiceActionEntry {
-        action: "compliance_case_conclude",
-        service_type: "bank8:compliance",
-        platform_domain_key: "bank8:compliance",
-        method: "POST",
-        endpoint: "/v1/cases",
-        scope: "bank8:compliance:cases:write",
-    },
-];
+const SERVICE_ACTIONS: &[ServiceActionEntry] = &[ServiceActionEntry {
+    action: "compliance_case_conclude",
+    service_type: "bank8:compliance",
+    platform_domain_key: "bank8:compliance",
+    method: "POST",
+    endpoint: "/v1/cases",
+    scope: "bank8:compliance:cases:write",
+}];
 
 fn openapi_spec() -> serde_json::Value {
-    serde_json::to_value(crate::openapi::ComplianceOpenApi::openapi()).unwrap_or(serde_json::Value::Null)
+    serde_json::to_value(crate::openapi::ComplianceOpenApi::openapi())
+        .unwrap_or(serde_json::Value::Null)
 }
 
 /// Print the registration JSON to stdout.
@@ -184,9 +263,11 @@ pub fn print(section: Option<String>) -> anyhow::Result<()> {
             service_flag: "compliance",
             pages: ADMIN_UI_PAGES,
         }),
-        sql_migrations: vec![
-            SqlMigration { version: 1, name: "init", sql: SQL_1_INIT },
-        ],
+        sql_migrations: vec![SqlMigration {
+            version: 1,
+            name: "init",
+            sql: SQL_1_INIT,
+        }],
         audit_findings: Some(AUDIT_FINDINGS),
         service_actions: Some(SERVICE_ACTIONS),
         m2m_grants: Some(M2M_GRANTS),

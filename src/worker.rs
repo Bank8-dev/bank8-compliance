@@ -148,7 +148,10 @@ async fn sse_consume_loop(state: Arc<WorkerState>) {
                         // the retry delay — None takes the default), then
                         // ACK to move on (the DLQ handles poison
                         // messages).
-                        let _ = state.bus.nack(&family, CONSUMER_GROUP, &message_id, None).await;
+                        let _ = state
+                            .bus
+                            .nack(&family, CONSUMER_GROUP, &message_id, None)
+                            .await;
                         let _ = state.bus.ack(&family, CONSUMER_GROUP, &message_id).await;
                     }
                 }
@@ -174,7 +177,11 @@ async fn process_screening_event(
 ) -> Result<(), String> {
     let env_uuid = Uuid::parse_str(env_id).map_err(|_| format!("unparsable env_id: {env_id}"))?;
 
-    let mut conn = state.pool.acquire().await.map_err(|e| format!("pool: {e}"))?;
+    let mut conn = state
+        .pool
+        .acquire()
+        .await
+        .map_err(|e| format!("pool: {e}"))?;
     set_tenant_context(&mut conn, env_uuid).await;
 
     tracing::debug!(

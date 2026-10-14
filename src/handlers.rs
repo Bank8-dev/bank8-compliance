@@ -20,8 +20,8 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
-use uuid::Uuid;
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 use crate::auth;
 use crate::config::ComplianceConfig;
@@ -64,10 +64,24 @@ pub(crate) async fn set_tenant_context(conn: &mut sqlx::PgConnection, env_id: Uu
 /// `POST /v1/produce` (idempotency_key = row id). `suspicious:detected`
 /// reaches Reporting through this durable tier — Compliance never files
 /// and never touches Reporting's tables (DESIGN.md §8).
-pub(crate) async fn emit_event(state: &AppState, env_id: Uuid, event_type: &str, payload: serde_json::Value) {
-    state.membus.publish_pubsub("compliance", event_type, payload.clone()).await;
-    if let Err(e) =
-        sentin8::bus::outbox::insert_outbox_row_pool(&state.pool, env_id, "compliance", event_type, &payload).await
+pub(crate) async fn emit_event(
+    state: &AppState,
+    env_id: Uuid,
+    event_type: &str,
+    payload: serde_json::Value,
+) {
+    state
+        .membus
+        .publish_pubsub("compliance", event_type, payload.clone())
+        .await;
+    if let Err(e) = sentin8::bus::outbox::insert_outbox_row_pool(
+        &state.pool,
+        env_id,
+        "compliance",
+        event_type,
+        &payload,
+    )
+    .await
     {
         tracing::warn!(error = %e, event_type = %event_type, "bank8:compliance: failed to emit outbox event");
     }
@@ -87,8 +101,7 @@ pub struct KycResponse {
 /// the path (`/v1/customers/{id}/kyc`); the body carries no duplicate of
 /// it.
 #[derive(Debug, Deserialize, ToSchema)]
-pub struct CreateKycRequest {
-}
+pub struct CreateKycRequest {}
 
 /// An alert as returned by the alert reads.
 #[derive(Debug, Serialize, ToSchema)]
@@ -143,7 +156,9 @@ fn row_to_alert(row: &sqlx::postgres::PgRow) -> AlertResponse {
 /// `GET /v1/health` — service health payload.
 pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
     let db_ok = sqlx::query("SELECT 1").execute(&state.pool).await.is_ok();
-    Json(serde_json::json!({ "status": if db_ok { "ok" } else { "degraded" }, "service": "bank8:compliance" }))
+    Json(
+        serde_json::json!({ "status": if db_ok { "ok" } else { "degraded" }, "service": "bank8:compliance" }),
+    )
 }
 
 // ── KYC ────────────────────────────────────────────────────────────────────
@@ -156,7 +171,13 @@ pub async fn create_kyc(
     Path(customer_id): Path<Uuid>,
 ) -> Result<Json<KycResponse>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:kyc:write")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:kyc:write"),
+    )
+    .await?;
     let mut conn = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut conn, a.env_id()).await;
     let row = sqlx::query(
@@ -166,10 +187,18 @@ pub async fn create_kyc(
     )
     .bind(a.env_id())
     .bind(customer_id)
-    .fetch_one(&mut *conn).await.map_err(crate::errors::err_db)?;
+    .fetch_one(&mut *conn)
+    .await
+    .map_err(crate::errors::err_db)?;
     let kyc = row_to_kyc(&row);
     conn.commit().await.map_err(crate::errors::err_db)?;
-    emit_event(&state, a.env_id(), "bank8:compliance:kyc:created", serde_json::to_value(&kyc).unwrap_or_default()).await;
+    emit_event(
+        &state,
+        a.env_id(),
+        "bank8:compliance:kyc:created",
+        serde_json::to_value(&kyc).unwrap_or_default(),
+    )
+    .await;
     Ok(Json(kyc))
 }
 
@@ -181,7 +210,13 @@ pub async fn list_kyc(
     Path(customer_id): Path<Uuid>,
 ) -> Result<Json<Vec<KycResponse>>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:kyc:read")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:kyc:read"),
+    )
+    .await?;
     let mut conn = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut conn, a.env_id()).await;
     let rows = sqlx::query(
@@ -191,7 +226,9 @@ pub async fn list_kyc(
     )
     .bind(a.env_id())
     .bind(customer_id)
-    .fetch_all(&mut *conn).await.map_err(crate::errors::err_db)?;
+    .fetch_all(&mut *conn)
+    .await
+    .map_err(crate::errors::err_db)?;
     Ok(Json(rows.iter().map(row_to_kyc).collect()))
 }
 
@@ -224,7 +261,13 @@ pub async fn disclose_beneficial_owner(
     Json(req): Json<DiscloseBeneficialOwnerRequest>,
 ) -> Result<Json<BeneficialOwnerResponse>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:kyc:write")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:kyc:write"),
+    )
+    .await?;
     if !req.identity_ref.starts_with("sentin8-secrets://") {
         return Err((StatusCode::UNPROCESSABLE_ENTITY, "identity_ref must be a sentin8-secrets:// reference — plaintext identity data is never stored".into()));
     }
@@ -235,10 +278,17 @@ pub async fn disclose_beneficial_owner(
         r#"SELECT count(*) FROM kyc_records
             WHERE id = $1 AND env_id = $2 AND customer_id = $3"#,
     )
-    .bind(req.kyc_id).bind(a.env_id()).bind(customer_id)
-    .fetch_one(&mut *tx).await.map_err(crate::errors::err_db)?;
+    .bind(req.kyc_id)
+    .bind(a.env_id())
+    .bind(customer_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(crate::errors::err_db)?;
     if owned == 0 {
-        return Err((StatusCode::NOT_FOUND, format!("kyc record {} not found for this customer", req.kyc_id)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("kyc record {} not found for this customer", req.kyc_id),
+        ));
     }
     let row = sqlx::query(
         r#"INSERT INTO beneficial_owners (env_id, kyc_id, identity_ref)
@@ -246,15 +296,25 @@ pub async fn disclose_beneficial_owner(
            ON CONFLICT (kyc_id, identity_ref) DO NOTHING
            RETURNING id, kyc_id, identity_ref"#,
     )
-    .bind(a.env_id()).bind(req.kyc_id).bind(&req.identity_ref)
-    .fetch_one(&mut *tx).await.map_err(crate::errors::err_db)?;
+    .bind(a.env_id())
+    .bind(req.kyc_id)
+    .bind(&req.identity_ref)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(crate::errors::err_db)?;
     let bo = BeneficialOwnerResponse {
         id: row.get("id"),
         kyc_id: row.get("kyc_id"),
         identity_ref: row.get("identity_ref"),
     };
     tx.commit().await.map_err(crate::errors::err_db)?;
-    emit_event(&state, a.env_id(), "bank8:compliance:kyc:beneficial_owner:disclosed", serde_json::to_value(&bo).unwrap_or_default()).await;
+    emit_event(
+        &state,
+        a.env_id(),
+        "bank8:compliance:kyc:beneficial_owner:disclosed",
+        serde_json::to_value(&bo).unwrap_or_default(),
+    )
+    .await;
     Ok(Json(bo))
 }
 
@@ -267,7 +327,13 @@ pub async fn list_beneficial_owners(
     Path(customer_id): Path<Uuid>,
 ) -> Result<Json<Vec<BeneficialOwnerResponse>>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:kyc:read")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:kyc:read"),
+    )
+    .await?;
     let mut tx = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut tx, a.env_id()).await;
     let rows = sqlx::query(
@@ -277,13 +343,20 @@ pub async fn list_beneficial_owners(
             WHERE bo.env_id = $1 AND k.customer_id = $2
             ORDER BY bo.created_at"#,
     )
-    .bind(a.env_id()).bind(customer_id)
-    .fetch_all(&mut *tx).await.map_err(crate::errors::err_db)?;
-    Ok(Json(rows.iter().map(|r| BeneficialOwnerResponse {
-        id: r.get("id"),
-        kyc_id: r.get("kyc_id"),
-        identity_ref: r.get("identity_ref"),
-    }).collect()))
+    .bind(a.env_id())
+    .bind(customer_id)
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(crate::errors::err_db)?;
+    Ok(Json(
+        rows.iter()
+            .map(|r| BeneficialOwnerResponse {
+                id: r.get("id"),
+                kyc_id: r.get("kyc_id"),
+                identity_ref: r.get("identity_ref"),
+            })
+            .collect(),
+    ))
 }
 
 /// Request body for recording a PEP determination against a KYC record.
@@ -305,17 +378,30 @@ pub async fn record_pep_determination(
     Json(req): Json<PepDeterminationRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:kyc:write")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:kyc:write"),
+    )
+    .await?;
     let mut tx = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut tx, a.env_id()).await;
     let owned = sqlx::query_scalar::<_, i64>(
         r#"SELECT count(*) FROM kyc_records
             WHERE id = $1 AND env_id = $2 AND customer_id = $3"#,
     )
-    .bind(req.kyc_id).bind(a.env_id()).bind(customer_id)
-    .fetch_one(&mut *tx).await.map_err(crate::errors::err_db)?;
+    .bind(req.kyc_id)
+    .bind(a.env_id())
+    .bind(customer_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(crate::errors::err_db)?;
     if owned == 0 {
-        return Err((StatusCode::NOT_FOUND, format!("kyc record {} not found for this customer", req.kyc_id)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("kyc record {} not found for this customer", req.kyc_id),
+        ));
     }
     let row = sqlx::query(
         r#"INSERT INTO pep_determinations (env_id, kyc_id, is_pep)
@@ -323,15 +409,25 @@ pub async fn record_pep_determination(
            ON CONFLICT (kyc_id) DO UPDATE SET is_pep = EXCLUDED.is_pep, created_at = now()
            RETURNING id, kyc_id, is_pep"#,
     )
-    .bind(a.env_id()).bind(req.kyc_id).bind(req.is_pep)
-    .fetch_one(&mut *tx).await.map_err(crate::errors::err_db)?;
+    .bind(a.env_id())
+    .bind(req.kyc_id)
+    .bind(req.is_pep)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(crate::errors::err_db)?;
     let payload = serde_json::json!({
         "id": row.get::<Uuid, _>("id"),
         "kyc_id": row.get::<Uuid, _>("kyc_id"),
         "is_pep": row.get::<bool, _>("is_pep"),
     });
     tx.commit().await.map_err(crate::errors::err_db)?;
-    emit_event(&state, a.env_id(), "bank8:compliance:kyc:pep:determined", payload.clone()).await;
+    emit_event(
+        &state,
+        a.env_id(),
+        "bank8:compliance:kyc:pep:determined",
+        payload.clone(),
+    )
+    .await;
     Ok(Json(payload))
 }
 
@@ -356,12 +452,24 @@ pub async fn upsert_risk_profile(
     Json(req): Json<UpsertRiskProfileRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:kyc:write")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:kyc:write"),
+    )
+    .await?;
     if !["low", "medium", "high"].contains(&req.rating.as_str()) {
-        return Err((StatusCode::UNPROCESSABLE_ENTITY, format!("invalid rating: {}", req.rating)));
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("invalid rating: {}", req.rating),
+        ));
     }
     if req.rationale.trim().is_empty() {
-        return Err((StatusCode::UNPROCESSABLE_ENTITY, "rationale is required — a rating without recorded reasoning is unauditable".into()));
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "rationale is required — a rating without recorded reasoning is unauditable".into(),
+        ));
     }
     let mut tx = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut tx, a.env_id()).await;
@@ -378,8 +486,11 @@ pub async fn upsert_risk_profile(
                           ORDER BY created_at DESC LIMIT 1)
               AND k.env_id = $2"#,
     )
-    .bind(customer_id).bind(a.env_id())
-    .fetch_optional(&mut *tx).await.map_err(crate::errors::err_db)?;
+    .bind(customer_id)
+    .bind(a.env_id())
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(crate::errors::err_db)?;
     let rating = if pep == Some(true) && req.rating != "high" {
         "high".to_string()
     } else {
@@ -401,7 +512,13 @@ pub async fn upsert_risk_profile(
         "rationale": row.get::<String, _>("rationale"),
     });
     tx.commit().await.map_err(crate::errors::err_db)?;
-    emit_event(&state, a.env_id(), "bank8:compliance:kyc:risk_profile:upserted", payload.clone()).await;
+    emit_event(
+        &state,
+        a.env_id(),
+        "bank8:compliance:kyc:risk_profile:upserted",
+        payload.clone(),
+    )
+    .await;
     Ok(Json(payload))
 }
 
@@ -415,7 +532,13 @@ pub async fn list_alerts(
     Query(q): Query<ListAlertsQuery>,
 ) -> Result<Json<Vec<AlertResponse>>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:alerts:read")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:alerts:read"),
+    )
+    .await?;
     let mut conn = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut conn, a.env_id()).await;
     let rows = sqlx::query(
@@ -425,7 +548,9 @@ pub async fn list_alerts(
     )
     .bind(a.env_id())
     .bind(q.status)
-    .fetch_all(&mut *conn).await.map_err(crate::errors::err_db)?;
+    .fetch_all(&mut *conn)
+    .await
+    .map_err(crate::errors::err_db)?;
     Ok(Json(rows.iter().map(row_to_alert).collect()))
 }
 
@@ -440,7 +565,13 @@ pub async fn open_case(
     Json(req): Json<OpenCaseRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:cases:write")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:cases:write"),
+    )
+    .await?;
     let mut conn = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut conn, a.env_id()).await;
     let row = sqlx::query(
@@ -450,9 +581,14 @@ pub async fn open_case(
     )
     .bind(alert_id)
     .bind(a.env_id())
-    .fetch_optional(&mut *conn).await.map_err(crate::errors::err_db)?;
+    .fetch_optional(&mut *conn)
+    .await
+    .map_err(crate::errors::err_db)?;
     let Some(_) = row else {
-        return Err((StatusCode::CONFLICT, format!("alert {alert_id} not escalatable (missing or terminal)")));
+        return Err((
+            StatusCode::CONFLICT,
+            format!("alert {alert_id} not escalatable (missing or terminal)"),
+        ));
     };
     let case_id = sqlx::query_scalar::<_, Uuid>(
         r#"INSERT INTO cases (env_id, alert_id, status, assignee)
@@ -461,10 +597,19 @@ pub async fn open_case(
     .bind(a.env_id())
     .bind(alert_id)
     .bind(&req.assignee)
-    .fetch_one(&mut *conn).await.map_err(crate::errors::err_db)?;
+    .fetch_one(&mut *conn)
+    .await
+    .map_err(crate::errors::err_db)?;
     conn.commit().await.map_err(crate::errors::err_db)?;
-    let payload = serde_json::json!({ "case_id": case_id, "alert_id": alert_id, "assignee": req.assignee });
-    emit_event(&state, a.env_id(), "bank8:compliance:case:opened", payload.clone()).await;
+    let payload =
+        serde_json::json!({ "case_id": case_id, "alert_id": alert_id, "assignee": req.assignee });
+    emit_event(
+        &state,
+        a.env_id(),
+        "bank8:compliance:case:opened",
+        payload.clone(),
+    )
+    .await;
     Ok(Json(payload))
 }
 
@@ -489,7 +634,13 @@ pub async fn list_rules(
     headers: HeaderMap,
 ) -> Result<Json<Vec<MonitoringRuleResponse>>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:alerts:read")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:alerts:read"),
+    )
+    .await?;
     let mut conn = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut conn, a.env_id()).await;
     let rows = sqlx::query(
@@ -497,14 +648,20 @@ pub async fn list_rules(
             WHERE env_id = $1 ORDER BY rule_code"#,
     )
     .bind(a.env_id())
-    .fetch_all(&mut *conn).await.map_err(crate::errors::err_db)?;
-    Ok(Json(rows.iter().map(|r| MonitoringRuleResponse {
-        id: r.get("id"),
-        rule_code: r.get("rule_code"),
-        threshold: r.get("threshold"),
-        window: r.get("aggregation_window"),
-        enabled: r.get("enabled"),
-    }).collect()))
+    .fetch_all(&mut *conn)
+    .await
+    .map_err(crate::errors::err_db)?;
+    Ok(Json(
+        rows.iter()
+            .map(|r| MonitoringRuleResponse {
+                id: r.get("id"),
+                rule_code: r.get("rule_code"),
+                threshold: r.get("threshold"),
+                window: r.get("aggregation_window"),
+                enabled: r.get("enabled"),
+            })
+            .collect(),
+    ))
 }
 
 /// Request body for an alert-status transition (queue operations — the
@@ -528,9 +685,18 @@ pub async fn update_alert_status(
     Json(req): Json<UpdateAlertStatusRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:alerts:write")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:alerts:write"),
+    )
+    .await?;
     if !["reviewing", "closed"].contains(&req.status.as_str()) {
-        return Err((StatusCode::UNPROCESSABLE_ENTITY, format!("invalid alert status: {}", req.status)));
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("invalid alert status: {}", req.status),
+        ));
     }
     let mut tx = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut tx, a.env_id()).await;
@@ -542,16 +708,27 @@ pub async fn update_alert_status(
     .bind(alert_id)
     .bind(a.env_id())
     .bind(&req.status)
-    .fetch_optional(&mut *tx).await.map_err(crate::errors::err_db)?;
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(crate::errors::err_db)?;
     let Some(row) = row else {
-        return Err((StatusCode::CONFLICT, format!("alert {alert_id} not updatable (missing or terminal)")));
+        return Err((
+            StatusCode::CONFLICT,
+            format!("alert {alert_id} not updatable (missing or terminal)"),
+        ));
     };
     let payload = serde_json::json!({
         "id": row.get::<Uuid, _>("id"),
         "status": row.get::<String, _>("status"),
     });
     tx.commit().await.map_err(crate::errors::err_db)?;
-    emit_event(&state, a.env_id(), "bank8:compliance:alert:updated", payload.clone()).await;
+    emit_event(
+        &state,
+        a.env_id(),
+        "bank8:compliance:alert:updated",
+        payload.clone(),
+    )
+    .await;
     Ok(Json(payload))
 }
 
@@ -565,7 +742,13 @@ pub async fn get_case(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:cases:read")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:cases:read"),
+    )
+    .await?;
     let mut conn = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut conn, a.env_id()).await;
     let row = sqlx::query(
@@ -575,7 +758,9 @@ pub async fn get_case(
     )
     .bind(id)
     .bind(a.env_id())
-    .fetch_optional(&mut *conn).await.map_err(crate::errors::err_db)?;
+    .fetch_optional(&mut *conn)
+    .await
+    .map_err(crate::errors::err_db)?;
     let Some(row) = row else {
         return Err((StatusCode::NOT_FOUND, format!("case {id} not found")));
     };
@@ -600,7 +785,13 @@ pub async fn get_case_evidence(
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:cases:read")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:cases:read"),
+    )
+    .await?;
     let mut conn = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut conn, a.env_id()).await;
 
@@ -627,7 +818,9 @@ pub async fn get_case_evidence(
     )
     .bind(a.env_id())
     .bind(&subject)
-    .fetch_all(&mut *conn).await.map_err(crate::errors::err_db)?;
+    .fetch_all(&mut *conn)
+    .await
+    .map_err(crate::errors::err_db)?;
 
     Ok(Json(serde_json::json!({
         "case": {
@@ -670,9 +863,19 @@ pub async fn dismiss_case(
     Json(req): Json<DismissCaseRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:cases:write")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:cases:write"),
+    )
+    .await?;
     if req.reason.trim().is_empty() {
-        return Err((StatusCode::UNPROCESSABLE_ENTITY, "dismissal reason is required — a dismissal without a recorded reason is unauditable".into()));
+        return Err((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "dismissal reason is required — a dismissal without a recorded reason is unauditable"
+                .into(),
+        ));
     }
     let mut tx = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut tx, a.env_id()).await;
@@ -684,9 +887,14 @@ pub async fn dismiss_case(
     .bind(id)
     .bind(a.env_id())
     .bind(a.claims.sub.as_str())
-    .fetch_optional(&mut *tx).await.map_err(crate::errors::err_db)?;
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(crate::errors::err_db)?;
     let Some(row) = row else {
-        return Err((StatusCode::CONFLICT, format!("case {id} not dismissable (missing or terminal)")));
+        return Err((
+            StatusCode::CONFLICT,
+            format!("case {id} not dismissable (missing or terminal)"),
+        ));
     };
     let payload = serde_json::json!({
         "id": row.get::<Uuid, _>("id"),
@@ -696,7 +904,13 @@ pub async fn dismiss_case(
         "dismissed_by": a.claims.sub,
     });
     tx.commit().await.map_err(crate::errors::err_db)?;
-    emit_event(&state, a.env_id(), "bank8:compliance:case:dismissed", payload.clone()).await;
+    emit_event(
+        &state,
+        a.env_id(),
+        "bank8:compliance:case:dismissed",
+        payload.clone(),
+    )
+    .await;
     Ok(Json(payload))
 }
 
@@ -717,11 +931,22 @@ pub async fn conclude_case(
     let kind = serde_json::from_value::<bank8::regulatory::contracts::ReportKind>(
         serde_json::Value::String(req.report_kind.clone()),
     )
-    .map_err(|_| (StatusCode::UNPROCESSABLE_ENTITY, format!("unknown report kind: {}", req.report_kind)))?;
+    .map_err(|_| {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            format!("unknown report kind: {}", req.report_kind),
+        )
+    })?;
     let kind_json = serde_json::to_value(kind).unwrap_or_default();
 
     let a = auth::verify_token(&state.config, &headers).await?;
-    crate::policy::require(&state.policy, &a, &headers, sentin8::shield::EvalTarget::new("bank8:compliance:cases:write")).await?;
+    crate::policy::require(
+        &state.policy,
+        &a,
+        &headers,
+        sentin8::shield::EvalTarget::new("bank8:compliance:cases:write"),
+    )
+    .await?;
     let mut conn = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut conn, a.env_id()).await;
     let row = sqlx::query(
@@ -731,9 +956,14 @@ pub async fn conclude_case(
     )
     .bind(id)
     .bind(a.env_id())
-    .fetch_optional(&mut *conn).await.map_err(crate::errors::err_db)?;
+    .fetch_optional(&mut *conn)
+    .await
+    .map_err(crate::errors::err_db)?;
     let Some(row) = row else {
-        return Err((StatusCode::CONFLICT, format!("case {id} not concludable (missing or terminal)")));
+        return Err((
+            StatusCode::CONFLICT,
+            format!("case {id} not concludable (missing or terminal)"),
+        ));
     };
     // At-most-once per (case, report kind) — the unique index is the
     // dedupe floor.
@@ -746,7 +976,9 @@ pub async fn conclude_case(
     .bind(a.env_id())
     .bind(id)
     .bind(kind_json.as_str().unwrap_or("str"))
-    .fetch_one(&mut *conn).await.map_err(crate::errors::err_db)?;
+    .fetch_one(&mut *conn)
+    .await
+    .map_err(crate::errors::err_db)?;
     conn.commit().await.map_err(crate::errors::err_db)?;
     let payload = serde_json::json!({
         "activity_id": activity_id,
@@ -754,6 +986,12 @@ pub async fn conclude_case(
         "alert_id": row.get::<Uuid, _>("alert_id"),
         "report_kind": kind_json,
     });
-    emit_event(&state, a.env_id(), "bank8:compliance:suspicious:detected", payload.clone()).await;
+    emit_event(
+        &state,
+        a.env_id(),
+        "bank8:compliance:suspicious:detected",
+        payload.clone(),
+    )
+    .await;
     Ok(Json(payload))
 }

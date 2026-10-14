@@ -46,8 +46,11 @@ async fn seed_kyc(pool: &PgPool, env_id: Uuid) -> Option<Uuid> {
         r#"INSERT INTO kyc_records (env_id, customer_id, status)
            VALUES ($1, $2, 'verified') RETURNING id"#,
     )
-    .bind(env_id).bind(Uuid::new_v4())
-    .fetch_one(&mut *tx).await.ok()?;
+    .bind(env_id)
+    .bind(Uuid::new_v4())
+    .fetch_one(&mut *tx)
+    .await
+    .ok()?;
     tx.commit().await.ok()?;
     Some(kyc)
 }
@@ -55,13 +58,16 @@ async fn seed_kyc(pool: &PgPool, env_id: Uuid) -> Option<Uuid> {
 /// FORCE-RLS: a context-less alert insert is rejected.
 #[tokio::test]
 async fn alert_insert_without_context_rejected() {
-    let Some(pool) = test_pool().await else { return; };
+    let Some(pool) = test_pool().await else {
+        return;
+    };
     let res = sqlx::query(
         r#"INSERT INTO alerts (env_id, subject, source, source_ref, aggregation_window)
            VALUES ($1, 'sub', 'sanctions', 'ref-1', 'w1')"#,
     )
     .bind(Uuid::new_v4())
-    .execute(&pool).await;
+    .execute(&pool)
+    .await;
     assert!(res.is_err(), "context-less insert must violate FORCE RLS");
 }
 
@@ -70,7 +76,9 @@ async fn alert_insert_without_context_rejected() {
 /// converge — one alert, never duplicates.
 #[tokio::test]
 async fn alert_raise_is_at_most_once() {
-    let Some(pool) = test_pool().await else { return; };
+    let Some(pool) = test_pool().await else {
+        return;
+    };
     let env_id = Uuid::new_v4();
     let mut tx = with_context(&pool, env_id).await;
     let sql = r#"INSERT INTO alerts (env_id, subject, source, source_ref, aggregation_window)
@@ -80,14 +88,20 @@ async fn alert_raise_is_at_most_once() {
     let replay = sqlx::query(sql).execute(&mut *tx).await.expect("replay");
     tx.commit().await.expect("commit");
     assert_eq!(first.rows_affected(), 1);
-    assert_eq!(replay.rows_affected(), 0, "a replayed detection must NOT double-alert");
+    assert_eq!(
+        replay.rows_affected(),
+        0,
+        "a replayed detection must NOT double-alert"
+    );
 }
 
 /// One live PEP determination per KYC record — a re-determination
 /// updates in place (the unique index on kyc_id).
 #[tokio::test]
 async fn pep_determination_is_one_per_kyc() {
-    let Some(pool) = test_pool().await else { return; };
+    let Some(pool) = test_pool().await else {
+        return;
+    };
     let env_id = Uuid::new_v4();
     let kyc_id = seed_kyc(&pool, env_id).await.expect("kyc");
     let mut tx = with_context(&pool, env_id).await;
@@ -95,15 +109,32 @@ async fn pep_determination_is_one_per_kyc() {
                  VALUES ($1, $2, $3)
                  ON CONFLICT (kyc_id) DO UPDATE SET is_pep = EXCLUDED.is_pep
                  RETURNING id, is_pep"#;
-    let (id1, p1) = sqlx::query_as::<_, (Uuid, bool)>(sql).bind(env_id).bind(kyc_id).bind(false)
-        .fetch_one(&mut *tx).await.expect("first");
-    let (id2, p2) = sqlx::query_as::<_, (Uuid, bool)>(sql).bind(env_id).bind(kyc_id).bind(true)
-        .fetch_one(&mut *tx).await.expect("second");
+    let (id1, p1) = sqlx::query_as::<_, (Uuid, bool)>(sql)
+        .bind(env_id)
+        .bind(kyc_id)
+        .bind(false)
+        .fetch_one(&mut *tx)
+        .await
+        .expect("first");
+    let (id2, p2) = sqlx::query_as::<_, (Uuid, bool)>(sql)
+        .bind(env_id)
+        .bind(kyc_id)
+        .bind(true)
+        .fetch_one(&mut *tx)
+        .await
+        .expect("second");
     tx.commit().await.expect("commit");
     assert_eq!(id1, id2, "the same KYC record keeps ONE live determination");
-    assert!((p1, p2) == (false, true), "the re-determination updates in place");
-    let count = sqlx::query_scalar::<_, i64>("SELECT count(*) FROM pep_determinations WHERE kyc_id = $1")
-        .bind(kyc_id).fetch_one(&pool).await.expect("count");
+    assert!(
+        (p1, p2) == (false, true),
+        "the re-determination updates in place"
+    );
+    let count =
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM pep_determinations WHERE kyc_id = $1")
+            .bind(kyc_id)
+            .fetch_one(&pool)
+            .await
+            .expect("count");
     assert_eq!(count, 1);
 }
 
@@ -111,7 +142,9 @@ async fn pep_determination_is_one_per_kyc() {
 /// re-disclosing converges to the same row.
 #[tokio::test]
 async fn beneficial_owner_disclosure_is_idempotent() {
-    let Some(pool) = test_pool().await else { return; };
+    let Some(pool) = test_pool().await else {
+        return;
+    };
     let env_id = Uuid::new_v4();
     let kyc_id = seed_kyc(&pool, env_id).await.expect("kyc");
     let mut tx = with_context(&pool, env_id).await;
@@ -119,16 +152,28 @@ async fn beneficial_owner_disclosure_is_idempotent() {
                  VALUES ($1, $2, $3)
                  ON CONFLICT (kyc_id, identity_ref) DO NOTHING
                  RETURNING id"#;
-    let id1 = sqlx::query_scalar::<_, Uuid>(sql).bind(env_id).bind(kyc_id).bind("sentin8-secrets://test-bo")
-        .fetch_one(&mut *tx).await.expect("first");
-    let dup = sqlx::query(sql).bind(env_id).bind(kyc_id).bind("sentin8-secrets://test-bo")
-        .fetch_optional(&mut *tx).await.expect("second");
+    let id1 = sqlx::query_scalar::<_, Uuid>(sql)
+        .bind(env_id)
+        .bind(kyc_id)
+        .bind("sentin8-secrets://test-bo")
+        .fetch_one(&mut *tx)
+        .await
+        .expect("first");
+    let dup = sqlx::query(sql)
+        .bind(env_id)
+        .bind(kyc_id)
+        .bind("sentin8-secrets://test-bo")
+        .fetch_optional(&mut *tx)
+        .await
+        .expect("second");
     tx.commit().await.expect("commit");
     assert!(dup.is_none(), "re-disclosure converges to the existing row");
-    let count = sqlx::query_scalar::<_, i64>(
-        "SELECT count(*) FROM beneficial_owners WHERE id = $1",
-    )
-    .bind(id1).fetch_one(&pool).await.expect("count");
+    let count =
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM beneficial_owners WHERE id = $1")
+            .bind(id1)
+            .fetch_one(&pool)
+            .await
+            .expect("count");
     assert_eq!(count, 1);
 }
 
@@ -136,29 +181,66 @@ async fn beneficial_owner_disclosure_is_idempotent() {
 /// kind) — a redelivered conclude never double-files.
 #[tokio::test]
 async fn suspicious_activity_is_at_most_once_per_case() {
-    let Some(pool) = test_pool().await else { return; };
+    let Some(pool) = test_pool().await else {
+        return;
+    };
     let env_id = Uuid::new_v4();
     let kyc_id = seed_kyc(&pool, env_id).await.expect("kyc");
     let mut tx = with_context(&pool, env_id).await;
     let alert_id = sqlx::query_scalar::<_, Uuid>(
         r#"INSERT INTO alerts (env_id, subject, source, source_ref, aggregation_window, status)
            VALUES ($1, 'sub', 'sanctions', 'ref', 'w', 'escalated') RETURNING id"#,
-    ).bind(env_id).fetch_one(&mut *tx).await.expect("alert");
+    )
+    .bind(env_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("alert");
     let case_id = sqlx::query_scalar::<_, Uuid>(
         r#"INSERT INTO cases (env_id, alert_id, status, assignee)
            VALUES ($1, $2, 'investigating', 'analyst') RETURNING id"#,
-    ).bind(env_id).bind(alert_id).fetch_one(&mut *tx).await.expect("case");
+    )
+    .bind(env_id)
+    .bind(alert_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("case");
 
     let sql = r#"INSERT INTO suspicious_activities (env_id, case_id, report_kind)
                  VALUES ($1, $2, $3)
                  ON CONFLICT (case_id, report_kind) DO NOTHING"#;
-    let first = sqlx::query(sql).bind(env_id).bind(case_id).bind("sar").execute(&mut *tx).await.expect("first");
-    let replay = sqlx::query(sql).bind(env_id).bind(case_id).bind("sar").execute(&mut *tx).await.expect("replay");
+    let first = sqlx::query(sql)
+        .bind(env_id)
+        .bind(case_id)
+        .bind("sar")
+        .execute(&mut *tx)
+        .await
+        .expect("first");
+    let replay = sqlx::query(sql)
+        .bind(env_id)
+        .bind(case_id)
+        .bind("sar")
+        .execute(&mut *tx)
+        .await
+        .expect("replay");
     // A DIFFERENT kind for the same case is a distinct filing.
-    let other = sqlx::query(sql).bind(env_id).bind(case_id).bind("ctr").execute(&mut *tx).await.expect("other");
+    let other = sqlx::query(sql)
+        .bind(env_id)
+        .bind(case_id)
+        .bind("ctr")
+        .execute(&mut *tx)
+        .await
+        .expect("other");
     let _ = kyc_id;
     tx.commit().await.expect("commit");
     assert_eq!(first.rows_affected(), 1);
-    assert_eq!(replay.rows_affected(), 0, "a replayed conclude must NOT double-file");
-    assert_eq!(other.rows_affected(), 1, "a distinct report kind is a distinct filing");
+    assert_eq!(
+        replay.rows_affected(),
+        0,
+        "a replayed conclude must NOT double-file"
+    );
+    assert_eq!(
+        other.rows_affected(),
+        1,
+        "a distinct report kind is a distinct filing"
+    );
 }
