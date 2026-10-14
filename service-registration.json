@@ -1,0 +1,20 @@
+{
+  "vertical": "bank8",
+  "services": [
+    {
+      "service_type": "bank8:compliance",
+      "event_triggers": [
+        {
+          "event_type": "bank8:payments:instruction:created",
+          "consumer_group": "bank8:compliance:screening",
+          "action": "screen_and_monitor"
+        },
+        {
+          "event_type": "bank8:ledger:customer:created",
+          "consumer_group": "bank8:compliance:screening",
+          "action": "screen_customer"
+        }
+      ]
+    }
+  ]
+}
