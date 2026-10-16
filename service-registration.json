@@ -14,7 +14,11 @@
           "consumer_group": "bank8:compliance:screening",
           "action": "screen_customer"
         }
-      ]
+      ],
+      "telemetry_property": {
+        "slug": "compliance",
+        "name": "Bank8:Compliance Telemetry"
+      }
     }
   ]
 }
