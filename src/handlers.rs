@@ -153,6 +153,15 @@ fn row_to_alert(row: &sqlx::postgres::PgRow) -> AlertResponse {
 
 // ── Health ────────────────────────────────────────────────────────────────
 
+#[utoipa::path(
+    get,
+    path = "/v1/health",
+    responses(
+        (status = 200, description = "Liveness (version, build)"),
+    ),
+    security(),
+    tag = "meta",
+)]
 /// `GET /v1/health` — service health payload.
 ///
 /// Carries the binary's build identity (`version`/`build`, BUILDID-1) so
