@@ -1,4 +1,4 @@
-# Bank8:Compliance — Business Requirements & Functionality
+# Bank8:Compliance - Business Requirements & Functionality
 
 > Audience: product owners, business analysts, and anyone evaluating what
 > Bank8:Compliance **does for the business**. For architecture read
@@ -6,13 +6,13 @@
 
 ## 1. Business Purpose
 
-- **Financial-crime detection in real time** — sanctions screening and
+- **Financial-crime detection in real time** - sanctions screening and
   AML/CTF transaction monitoring run the moment a transaction or
   customer event happens, not in a nightly batch.
-- **A complete KYC/CDD record** — customer due diligence, beneficial
+- **A complete KYC/CDD record** - customer due diligence, beneficial
   ownership, PEP determination, and risk rating live together and drive
   monitoring intensity.
-- **Detection that becomes a filing** — suspicious activity is handed
+- **Detection that becomes a filing** - suspicious activity is handed
   to Bank8:Reporting as the single filing executor, so an STR/SAR/CTR
   is filed exactly once, on time.
 
@@ -48,9 +48,9 @@
 | Monitoring | Rules fire per jurisdiction thresholds (LCTR/EFTR, CTR, AMLD/EBA, MLR). |
 | Alerts | An alert is raised at most once per (subject, rule, window). |
 | Cases | A case escalates with an audited actor claim; evidence (alert + subject screens) is read-only input to the decision. |
-| KYC | Beneficial owners are held as secret references only — plaintext identity data is rejected at the API. |
+| KYC | Beneficial owners are held as secret references only - plaintext identity data is rejected at the API. |
 | PEP | One live determination per KYC record; a PEP determination forces the risk rating to at least `high`. |
-| Risk rating | Every rating carries a recorded rationale — an unexplained rating is unauditable and rejected. |
+| Risk rating | Every rating carries a recorded rationale - an unexplained rating is unauditable and rejected. |
 | Dismissal | A dismissed case records its reason and is terminal; nothing is filed for it. |
 | Filing handoff | `suspicious:detected` is emitted once per case; Reporting files it. |
 

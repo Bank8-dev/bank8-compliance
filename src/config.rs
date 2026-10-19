@@ -5,12 +5,12 @@
 
 //! Compliance configuration.
 //!
-//! URLs only — no tokens. Compliance's inputs are Bus events and its
+//! URLs only - no tokens. Compliance's inputs are Bus events and its
 //! outputs (alert/case/suspicious:detected) ride the local outbox →
-//! shell relay (compliance DESIGN.md §8) — `suspicious:detected` reaches
+//! shell relay (compliance DESIGN.md §8) - `suspicious:detected` reaches
 //! Reporting through Bus, never a direct call. The only outbound identity
 //! is the worker's own certificate-presenting Bus client built in
-//! `worker.rs` (CERTFREE-4V — single identity plane, principles §4.1):
+//! `worker.rs` (CERTFREE-4V - single identity plane, principles §4.1):
 //! a failed certificate mint fails the consume closed; there is no
 //! static-token fallback.
 
@@ -29,7 +29,7 @@ pub struct ComplianceConfig {
     /// Bus stream families the screening worker consumes
     /// (`payments`, `ledger`).
     pub consume_families: Vec<String>,
-    /// Shared Auth client — constructed once so the discovery and JWKS
+    /// Shared Auth client - constructed once so the discovery and JWKS
     /// caches are reused across every request.
     pub sentin8_auth_client: AuthClient,
 }

@@ -1,8 +1,8 @@
-# Bank8:Compliance — README
+# Bank8:Compliance - README
 
 AML/CTF and sanctions: customer risk rating, KYC/CDD and beneficial
 ownership, PEP determination, sanctions screening, real-time transaction
-monitoring, and alert/case management — detecting suspicious activity
+monitoring, and alert/case management - detecting suspicious activity
 and filing it through Bank8:Reporting.
 
 ## Summary
@@ -12,7 +12,7 @@ bank8 vertical database. It screens customers and transactions against
 sanctions watchlists, runs AML/CTF transaction monitoring rules in
 real time, manages the alert-to-case lifecycle, and records KYC/CDD,
 beneficial-ownership, and PEP determinations. It *detects* suspicious
-activity and hands the STR/SAR/CTR/EFTR/LCTR filing to Bank8:Reporting —
+activity and hands the STR/SAR/CTR/EFTR/LCTR filing to Bank8:Reporting -
 the vertical's single filing executor.
 
 ## Motivation
@@ -60,26 +60,26 @@ graph TD
 
 ## Key Traits and Data Structures
 
-- `CustomerRiskProfile` — a customer's AML risk rating (low/medium/high)
+- `CustomerRiskProfile` - a customer's AML risk rating (low/medium/high)
   and its rationale, recomputed from KYC and transaction behavior.
-- `KycRecord` / `BeneficialOwner` / `PepDetermination` — customer due
+- `KycRecord` / `BeneficialOwner` / `PepDetermination` - customer due
   diligence, ownership structure, and PEP status.
-- `SanctionsScreen` — a screening result against a watchlist snapshot;
+- `SanctionsScreen` - a screening result against a watchlist snapshot;
   hits generate alerts.
-- `MonitoringRule` — a declarative AML rule (threshold, aggregation
+- `MonitoringRule` - a declarative AML rule (threshold, aggregation
   window) resolved from the jurisdiction registry.
-- `Alert` / `Case` — the detection-to-investigation lifecycle with an
+- `Alert` / `Case` - the detection-to-investigation lifecycle with an
   audited actor claim.
 
 ## Rationale, Trade-offs, and Alternatives
 
-- **Detection here, filing there** — the vertical's single-filing-executor
+- **Detection here, filing there** - the vertical's single-filing-executor
   rule: Compliance emits `bank8:compliance:suspicious:detected`; Reporting
   files it. No shared table grant, no dual filing paths.
-- **Real-time, event-driven** — screening rides `bank8:payments:instruction:created`
+- **Real-time, event-driven** - screening rides `bank8:payments:instruction:created`
   and `bank8:ledger:customer:created` events with a full snapshot payload,
   minimizing read-back (principles §4.7, event-first).
-- **Thresholds are jurisdiction data** — LCTR/EFTR (Canada), CTR/SAR (US),
+- **Thresholds are jurisdiction data** - LCTR/EFTR (Canada), CTR/SAR (US),
   AMLD/EBA thresholds (EU), MLR (UK) live in the registry, never in code.
 
 See `DESIGN.md` for the wire-level detail and `BUSINESS.md` for the

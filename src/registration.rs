@@ -19,19 +19,19 @@ const PG_ROLES: &[PgRole] = &[PgRole {
     // Grants live in the bank8 vertical database only (DBX §6.6
     // database-per-vertical, schema-per-service).
     database: "bank8",
-    // Compliance owns all its reads — inputs arrive as events, never
+    // Compliance owns all its reads - inputs arrive as events, never
     // cross-schema grants (compliance DESIGN.md §8).
     cross_schema_grants: &[],
 }];
 
 /// Workload scope grants (self-registration design §3.11). One entry per
 /// workload this service presents a certificate for.
-/// - `bank8:compliance` / `compliance` — the service's own client
+/// - `bank8:compliance` / `compliance` - the service's own client
 ///   (server.rs): bus produce/consume (alert/case events + worker
 ///   consume).
-/// - `compliance-audit` — shell audit-journal pusher workload (audit
+/// - `compliance-audit` - shell audit-journal pusher workload (audit
 ///   crate §6.8; boot step 8c).
-/// - `compliance-worker` — the embedded screening worker (worker.rs):
+/// - `compliance-worker` - the embedded screening worker (worker.rs):
 ///   SSE consume on the payments/ledger families.
 const M2M_GRANTS: &[M2mGrant] = &[
     M2mGrant {
@@ -42,7 +42,7 @@ const M2M_GRANTS: &[M2mGrant] = &[
             "sentin8:stat:measure",
         ],
     },
-    // Shield hot-reload consumer (BUSPOLICY-1 — see bank8-reporting).
+    // Shield hot-reload consumer (BUSPOLICY-1 - see bank8-reporting).
     M2mGrant {
         workload: "bank8:compliance-policy",
         scopes: &["sentin8:bus:consume", "sentin8:stat:measure"],
@@ -169,7 +169,7 @@ const ADMIN_UI_PAGES: &[AdminUiPage] = &[
 
 /// Default declarative policy set (Sentin8:Policy design §3.2/§3.4,
 /// seeded by `vertical enroll` as `origin='platform'`, `mode='enforced'`):
-/// action-granular scope permits over the LIVE effective scope set — the
+/// action-granular scope permits over the LIVE effective scope set - the
 /// exact mirror of the gates this service's handlers evaluate in step 5
 /// (policy design §4.3). Step 5 is the only gate.
 pub const SCOPE_MIRROR_POLICIES: &str = concat!(
@@ -215,7 +215,7 @@ const POLICIES: &[PolicySetDecl] = &[PolicySetDecl {
     default_enabled: true,
 }];
 
-/// Default ReBAC relation tuples (design §3.1c) — none declared by this
+/// Default ReBAC relation tuples (design §3.1c) - none declared by this
 /// service today; env admins author their own graph via the relations
 /// admin API.
 const RELATIONS: &[RelationDecl] = &[];
@@ -225,7 +225,7 @@ const SQL_1_INIT: &str = include_str!("../sql/init.sql");
 const AUDIT_FINDINGS: &[AuditFinding] = &[
     AuditFinding {
         finding: "Beneficial-owner identity data stored as document bytes or plaintext identity numbers",
-        recommendation: "Identity references must remain platform references (sentin8-secrets:// or identity-plane references) — never document bytes or plaintext identity numbers in bank8 rows (compliance DESIGN.md §8).",
+        recommendation: "Identity references must remain platform references (sentin8-secrets:// or identity-plane references) - never document bytes or plaintext identity numbers in bank8 rows (compliance DESIGN.md §8).",
     },
 ];
 

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "bank8-compliance",
-    "description": "Sentin8 Bank8:Compliance — AML/CTF: KYC/CDD, sanctions screening, transaction monitoring, alert/case lifecycle.",
+    "description": "Sentin8 Bank8:Compliance - AML/CTF: KYC/CDD, sanctions screening, transaction monitoring, alert/case lifecycle.",
     "license": {
       "name": "MIT OR Apache-2.0",
       "identifier": "MIT OR Apache-2.0"
@@ -15,7 +15,7 @@
         "tags": [
           "admin-ui"
         ],
-        "summary": "GET /v1/admin/overview — the data endpoint behind the overview page:\nalert/case counts for the tenant env.",
+        "summary": "GET /v1/admin/overview - the data endpoint behind the overview page:\nalert/case counts for the tenant env.",
         "operationId": "admin_overview",
         "parameters": [
           {
@@ -53,7 +53,7 @@
         "tags": [
           "admin-ui"
         ],
-        "summary": "GET /v1/admin/ui/{page} — return the RFW definition for the requested\nadmin page.",
+        "summary": "GET /v1/admin/ui/{page} - return the RFW definition for the requested\nadmin page.",
         "operationId": "get_admin_ui",
         "parameters": [
           {
@@ -100,7 +100,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`GET /v1/alerts` — list alerts, optionally by status.",
+        "summary": "`GET /v1/alerts` - list alerts, optionally by status.",
         "operationId": "list_alerts",
         "parameters": [
           {
@@ -137,7 +137,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`POST /v1/alerts/{id}/case` — escalate an alert to a case with an\naudited actor claim (the assignee). The alert transitions to\n`escalated` in the same transaction.",
+        "summary": "`POST /v1/alerts/{id}/case` - escalate an alert to a case with an\naudited actor claim (the assignee). The alert transitions to\n`escalated` in the same transaction.",
         "operationId": "open_case",
         "requestBody": {
           "content": {
@@ -166,7 +166,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`POST /v1/alerts/{id}/status` — queue operation on an alert (claim /\nreview / close) with an audited actor: the caller's verified identity\ndrives the journal entry; the transition is guarded against terminal\nstates (closed alerts never reopen — a new detection raises a new\nalert).",
+        "summary": "`POST /v1/alerts/{id}/status` - queue operation on an alert (claim /\nreview / close) with an audited actor: the caller's verified identity\ndrives the journal entry; the transition is guarded against terminal\nstates (closed alerts never reopen - a new detection raises a new\nalert).",
         "operationId": "update_alert_status",
         "requestBody": {
           "content": {
@@ -198,7 +198,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`GET /v1/cases/{id}` — case detail with its alert.",
+        "summary": "`GET /v1/cases/{id}` - case detail with its alert.",
         "operationId": "get_case",
         "responses": {
           "200": {
@@ -217,7 +217,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`POST /v1/cases/{id}/conclude` — conclude a case as reportable: the\nreport kind lands in `suspicious_activities` and\n`bank8:compliance:suspicious:detected` is emitted exactly once —\nReporting files it through its own durable consume (detection here,\nfiling there — the single-filing-executor rule, DESIGN.md §8).",
+        "summary": "`POST /v1/cases/{id}/conclude` - conclude a case as reportable: the\nreport kind lands in `suspicious_activities` and\n`bank8:compliance:suspicious:detected` is emitted exactly once -\nReporting files it through its own durable consume (detection here,\nfiling there - the single-filing-executor rule, DESIGN.md §8).",
         "operationId": "conclude_case",
         "requestBody": {
           "content": {
@@ -246,7 +246,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`POST /v1/cases/{id}/dismiss` — dismiss a case as not reportable:\nthe recorded reason lands in the case row and NO suspicious activity\nis emitted — Reporting never sees a dismissed case (a dismissed\ncase is terminal; a new detection opens a new case).",
+        "summary": "`POST /v1/cases/{id}/dismiss` - dismiss a case as not reportable:\nthe recorded reason lands in the case row and NO suspicious activity\nis emitted - Reporting never sees a dismissed case (a dismissed\ncase is terminal; a new detection opens a new case).",
         "operationId": "dismiss_case",
         "requestBody": {
           "content": {
@@ -281,7 +281,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`GET /v1/cases/{id}/evidence` — the case's investigation evidence:\nthe originating alert, every sanctions screen against its subject,\nand the customer's risk profile (when resolved). Read-only —\nevidence is the input to the conclude/dismiss decision, never\nmutated by it.",
+        "summary": "`GET /v1/cases/{id}/evidence` - the case's investigation evidence:\nthe originating alert, every sanctions screen against its subject,\nand the customer's risk profile (when resolved). Read-only -\nevidence is the input to the conclude/dismiss decision, never\nmutated by it.",
         "operationId": "get_case_evidence",
         "responses": {
           "200": {
@@ -300,7 +300,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`GET /v1/customers/{id}/beneficial-owners` — list the customer's\ndisclosed beneficial owners (references only).",
+        "summary": "`GET /v1/customers/{id}/beneficial-owners` - list the customer's\ndisclosed beneficial owners (references only).",
         "operationId": "list_beneficial_owners",
         "responses": {
           "200": {
@@ -322,7 +322,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`POST /v1/customers/{id}/beneficial-owners` — disclose a beneficial\nowner against a KYC record (idempotent per (kyc, identity_ref) —\nre-disclosing the same owner converges to the same row).",
+        "summary": "`POST /v1/customers/{id}/beneficial-owners` - disclose a beneficial\nowner against a KYC record (idempotent per (kyc, identity_ref) -\nre-disclosing the same owner converges to the same row).",
         "operationId": "disclose_beneficial_owner",
         "requestBody": {
           "content": {
@@ -353,7 +353,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`GET /v1/customers/{id}/kyc` — list a customer's KYC records.",
+        "summary": "`GET /v1/customers/{id}/kyc` - list a customer's KYC records.",
         "operationId": "list_kyc",
         "responses": {
           "200": {
@@ -375,7 +375,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`POST /v1/customers/{id}/kyc` — create a KYC record for a customer.",
+        "summary": "`POST /v1/customers/{id}/kyc` - create a KYC record for a customer.",
         "operationId": "create_kyc",
         "requestBody": {
           "content": {
@@ -406,7 +406,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`POST /v1/customers/{id}/pep` — record a PEP (politically exposed\nperson) determination. One live determination per KYC record — a\nre-determination updates it in place (the latest determination is\nauthoritative; history rides the audit journal).",
+        "summary": "`POST /v1/customers/{id}/pep` - record a PEP (politically exposed\nperson) determination. One live determination per KYC record - a\nre-determination updates it in place (the latest determination is\nauthoritative; history rides the audit journal).",
         "operationId": "record_pep_determination",
         "requestBody": {
           "content": {
@@ -435,7 +435,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`POST /v1/customers/{id}/risk-profile` — upsert the customer's AML\nrisk rating (low/medium/high) with a recorded rationale. The rating\ndrives monitoring intensity; a PEP determination forces at least\n`high` (a PEP can never sit below it).",
+        "summary": "`POST /v1/customers/{id}/risk-profile` - upsert the customer's AML\nrisk rating (low/medium/high) with a recorded rationale. The rating\ndrives monitoring intensity; a PEP determination forces at least\n`high` (a PEP can never sit below it).",
         "operationId": "upsert_risk_profile",
         "requestBody": {
           "content": {
@@ -467,8 +467,8 @@
         "tags": [
           "meta"
         ],
-        "summary": "`GET /v1/health` — service health payload.",
-        "description": "Carries the binary's build identity (`version`/`build`, BUILDID-1) so\ncaptain's monitor populates `make status`'s VERSION column for every\ninstance — the consuming BINARY's identity, never a shared crate's.",
+        "summary": "`GET /v1/health` - service health payload.",
+        "description": "Carries the binary's build identity (`version`/`build`, BUILDID-1) so\ncaptain's monitor populates `make status`'s VERSION column for every\ninstance - the consuming BINARY's identity, never a shared crate's.",
         "operationId": "health",
         "responses": {
           "200": {
@@ -483,7 +483,7 @@
         "tags": [
           "handlers"
         ],
-        "summary": "`GET /v1/rules` — list the tenant's monitoring rules (thresholds\nderive from the jurisdiction registry — reporting's return-template\ndefinitions — materialized at env-init; never code).",
+        "summary": "`GET /v1/rules` - list the tenant's monitoring rules (thresholds\nderive from the jurisdiction registry - reporting's return-template\ndefinitions - materialized at env-init; never code).",
         "operationId": "list_rules",
         "responses": {
           "200": {
@@ -558,7 +558,7 @@
       },
       "ConcludeCaseRequest": {
         "type": "object",
-        "description": "Request body for concluding a case as suspicious — the report kind\nuses the shared `ReportKind` vocabulary.",
+        "description": "Request body for concluding a case as suspicious - the report kind\nuses the shared `ReportKind` vocabulary.",
         "required": [
           "report_kind"
         ],
@@ -570,11 +570,11 @@
       },
       "CreateKycRequest": {
         "type": "object",
-        "description": "Request body for creating a KYC record — the customer id arrives in\nthe path (`/v1/customers/{id}/kyc`); the body carries no duplicate of\nit."
+        "description": "Request body for creating a KYC record - the customer id arrives in\nthe path (`/v1/customers/{id}/kyc`); the body carries no duplicate of\nit."
       },
       "DiscloseBeneficialOwnerRequest": {
         "type": "object",
-        "description": "Request body for disclosing a beneficial owner — identity by platform\nreference only (a sentin8-secrets:// or identity-plane reference);\ndocument bytes and plaintext identity numbers never enter a bank8\nrow (DESIGN.md §8 invariant).",
+        "description": "Request body for disclosing a beneficial owner - identity by platform\nreference only (a sentin8-secrets:// or identity-plane reference);\ndocument bytes and plaintext identity numbers never enter a bank8\nrow (DESIGN.md §8 invariant).",
         "required": [
           "kyc_id",
           "identity_ref"
@@ -591,7 +591,7 @@
       },
       "DismissCaseRequest": {
         "type": "object",
-        "description": "Request body for dismissing a case — the reason is mandatory (a\ndismissal without a recorded reason is unauditable).",
+        "description": "Request body for dismissing a case - the reason is mandatory (a\ndismissal without a recorded reason is unauditable).",
         "required": [
           "reason"
         ],
@@ -695,7 +695,7 @@
       },
       "UpdateAlertStatusRequest": {
         "type": "object",
-        "description": "Request body for an alert-status transition (queue operations — the\nactor claim is audited via the caller's identity in the audit\njournal).",
+        "description": "Request body for an alert-status transition (queue operations - the\nactor claim is audited via the caller's identity in the audit\njournal).",
         "required": [
           "status"
         ],
@@ -707,7 +707,7 @@
       },
       "UpsertRiskProfileRequest": {
         "type": "object",
-        "description": "Request body for upserting the customer's AML risk rating — the\nrationale is mandatory (a rating without its recorded reasoning is\nunauditable).",
+        "description": "Request body for upserting the customer's AML risk rating - the\nrationale is mandatory (a rating without its recorded reasoning is\nunauditable).",
         "required": [
           "rating",
           "rationale"
@@ -727,7 +727,7 @@
   "tags": [
     {
       "name": "compliance",
-      "description": "Bank8:Compliance — AML/CTF: KYC/CDD, sanctions screening, transaction monitoring, alert/case lifecycle"
+      "description": "Bank8:Compliance - AML/CTF: KYC/CDD, sanctions screening, transaction monitoring, alert/case lifecycle"
     }
   ]
 }

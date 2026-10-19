@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:Compliance
 // SPDX-License-Identifier: Apache-2.0
 
-//! Bank8:Compliance Admin UI handlers — RFW (Remote Flutter Widget)
+//! Bank8:Compliance Admin UI handlers - RFW (Remote Flutter Widget)
 //! definitions for the alert queue and case investigation pages. Icons
 //! are Material Icons code points (hex strings), per principles §4.15.
 
@@ -20,7 +20,7 @@ use sqlx::Row;
 use crate::auth;
 use crate::handlers::{set_tenant_context, AppState};
 
-/// GET /v1/admin/ui/{page} — return the RFW definition for the requested
+/// GET /v1/admin/ui/{page} - return the RFW definition for the requested
 /// admin page.
 #[utoipa::path(
     get,
@@ -54,7 +54,7 @@ pub async fn get_admin_ui(
         "overview" => overview_page(),
         "alerts" => alerts_page(),
         "cases" => cases_page(),
-        // ── Policy Studio (design §3.7) — shared page constructors; the
+        // ── Policy Studio (design §3.7) - shared page constructors; the
         // guard guarantees `Some` (§3.7 dispatch).
         p if sentin8::rfw::policy_page("bank8:compliance", p).is_some() => {
             sentin8::rfw::policy_page("bank8:compliance", p)
@@ -80,7 +80,7 @@ fn overview_page() -> AdminUiPage {
             title: Some("Detection & Investigation".into()),
             subtitle: None,
             children: vec![
-                RemoteWidget::Text(WidgetText { text: "Sanctions screening and AML transaction monitoring run the moment a transaction or customer event happens; alerts escalate to cases with audited actor claims, and suspicious activities hand off to Reporting — the single filing executor.".into(), text_type: WidgetTextType::Body, align: TextAlign::Left, max_lines: None }),
+                RemoteWidget::Text(WidgetText { text: "Sanctions screening and AML transaction monitoring run the moment a transaction or customer event happens; alerts escalate to cases with audited actor claims, and suspicious activities hand off to Reporting - the single filing executor.".into(), text_type: WidgetTextType::Body, align: TextAlign::Left, max_lines: None }),
             ],
             actions: vec![],
         }))
@@ -93,7 +93,7 @@ fn alerts_page() -> AdminUiPage {
             title: Some("Open Alerts".into()),
             subtitle: None,
             children: vec![
-                RemoteWidget::Text(WidgetText { text: "Filter by source (sanctions/monitoring/risk breach), status, and subject rating — an alert is raised at most once per (subject, rule, window).".into(), text_type: WidgetTextType::Body, align: TextAlign::Left, max_lines: None }),
+                RemoteWidget::Text(WidgetText { text: "Filter by source (sanctions/monitoring/risk breach), status, and subject rating - an alert is raised at most once per (subject, rule, window).".into(), text_type: WidgetTextType::Body, align: TextAlign::Left, max_lines: None }),
             ],
             actions: vec![],
         }))
@@ -106,14 +106,14 @@ fn cases_page() -> AdminUiPage {
             title: Some("Investigations".into()),
             subtitle: None,
             children: vec![
-                RemoteWidget::Text(WidgetText { text: "Claim, review evidence, and conclude — a concluded suspicious case files through Reporting, never Compliance; case actor claims are first-class audit entries.".into(), text_type: WidgetTextType::Body, align: TextAlign::Left, max_lines: None }),
+                RemoteWidget::Text(WidgetText { text: "Claim, review evidence, and conclude - a concluded suspicious case files through Reporting, never Compliance; case actor claims are first-class audit entries.".into(), text_type: WidgetTextType::Body, align: TextAlign::Left, max_lines: None }),
             ],
             actions: vec![],
         }))
         .build()
 }
 
-/// GET /v1/admin/overview — the data endpoint behind the overview page:
+/// GET /v1/admin/overview - the data endpoint behind the overview page:
 /// alert/case counts for the tenant env.
 #[utoipa::path(
     get,

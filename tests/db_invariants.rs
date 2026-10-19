@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:Compliance
 // SPDX-License-Identifier: Apache-2.0
 
-//! DB-backed schema-invariant tests (runtime-skip) — compliance
+//! DB-backed schema-invariant tests (runtime-skip) - compliance
 //! DESIGN.md §9. Exercises: FORCE-RLS rejects context-less inserts; the
 //! at-most-once alert invariant (unique (env, subject, source,
 //! source_ref, window)); one live PEP determination per KYC record;
@@ -21,7 +21,7 @@ async fn test_pool() -> Option<PgPool> {
     match sqlx::PgPool::connect(&url).await {
         Ok(p) => Some(p),
         Err(e) => {
-            eprintln!("skipping DB-backed compliance tests — no database: {e}");
+            eprintln!("skipping DB-backed compliance tests - no database: {e}");
             None
         }
     }
@@ -30,7 +30,7 @@ async fn test_pool() -> Option<PgPool> {
 async fn with_context<'c>(pool: &'c PgPool, env_id: Uuid) -> sqlx::Transaction<'c, sqlx::Postgres> {
     let mut tx = pool.begin().await.expect("tx");
     // The context-set and every dependent insert share ONE transaction
-    // (the ledger db_handlers discipline — set_config true is
+    // (the ledger db_handlers discipline - set_config true is
     // transaction-local).
     let _ = sqlx::query("SELECT sentin8_set_tenant_context($1, '', 'm2m', 'sys:admin')")
         .bind(env_id)
@@ -73,7 +73,7 @@ async fn alert_insert_without_context_rejected() {
 
 /// The at-most-once alert invariant: the unique
 /// (env, subject, source, source_ref, window) makes a replayed detection
-/// converge — one alert, never duplicates.
+/// converge - one alert, never duplicates.
 #[tokio::test]
 async fn alert_raise_is_at_most_once() {
     let Some(pool) = test_pool().await else {
@@ -95,7 +95,7 @@ async fn alert_raise_is_at_most_once() {
     );
 }
 
-/// One live PEP determination per KYC record — a re-determination
+/// One live PEP determination per KYC record - a re-determination
 /// updates in place (the unique index on kyc_id).
 #[tokio::test]
 async fn pep_determination_is_one_per_kyc() {
@@ -138,7 +138,7 @@ async fn pep_determination_is_one_per_kyc() {
     assert_eq!(count, 1);
 }
 
-/// Beneficial-owner disclosure is idempotent per (kyc, identity_ref) —
+/// Beneficial-owner disclosure is idempotent per (kyc, identity_ref) -
 /// re-disclosing converges to the same row.
 #[tokio::test]
 async fn beneficial_owner_disclosure_is_idempotent() {
@@ -178,7 +178,7 @@ async fn beneficial_owner_disclosure_is_idempotent() {
 }
 
 /// The suspicious-activity handoff is at-most-once per (case, report
-/// kind) — a redelivered conclude never double-files.
+/// kind) - a redelivered conclude never double-files.
 #[tokio::test]
 async fn suspicious_activity_is_at_most_once_per_case() {
     let Some(pool) = test_pool().await else {

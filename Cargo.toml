@@ -10,7 +10,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Bank8-dev/bank8-compliance"
 rust-version = "1.85"
-description = "Sentin8 Bank8:Compliance — AML/CTF: KYC/CDD, sanctions screening, transaction monitoring, alert/case lifecycle."
+description = "Sentin8 Bank8:Compliance - AML/CTF: KYC/CDD, sanctions screening, transaction monitoring, alert/case lifecycle."
 
 [[bin]]
 name = "bank8-compliance"

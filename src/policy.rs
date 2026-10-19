@@ -15,6 +15,6 @@ pub use sentin8::shield::runtime::{
 };
 pub use sentin8::shield::PolicyEngine as Engine;
 
-/// Step 5 for compliance: verify (steps 1–4) already ran; evaluate + 403
+/// Step 5 for compliance: verify (steps 1-4) already ran; evaluate + 403
 /// on enforced deny. Handlers call this instead of any JWT scope check.
 pub use sentin8::shield::runtime::require_policy as require;

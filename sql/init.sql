@@ -3,14 +3,14 @@
 -- SPDX-FileCopyrightText: Copyright Contributors to the Bank8:Compliance
 -- SPDX-License-Identifier: Apache-2.0
 
--- Bank8:Compliance — the service's own schema `compliance`
+-- Bank8:Compliance - the service's own schema `compliance`
 -- (schema-per-service): compliance_* domain tables + compliance.outbox /
 -- compliance.audit_journal producer tables, all FORCE-RLS env-scoped,
 -- per services/compliance/DESIGN.md §3.
 
 CREATE SCHEMA IF NOT EXISTS compliance;
 
--- Customer risk rating (low/medium/high) with recorded rationale —
+-- Customer risk rating (low/medium/high) with recorded rationale -
 -- drives monitoring intensity.
 CREATE TABLE IF NOT EXISTS compliance.customer_risk_profiles (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS compliance.kyc_records (
 CREATE INDEX IF NOT EXISTS idx_compliance_kyc_customer
     ON compliance.kyc_records (env_id, customer_id);
 
--- Beneficial ownership disclosure. Identity by platform reference only —
+-- Beneficial ownership disclosure. Identity by platform reference only -
 -- never document bytes or plaintext identity numbers in bank8 rows
 -- (DESIGN.md §8 invariant).
 CREATE TABLE IF NOT EXISTS compliance.beneficial_owners (
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS compliance.pep_determinations (
 
 CREATE INDEX IF NOT EXISTS idx_compliance_pep_kyc
     ON compliance.pep_determinations (kyc_id);
--- One live determination per KYC record — a re-determination updates in
+-- One live determination per KYC record - a re-determination updates in
 -- place (the handler's ON CONFLICT (kyc_id) target; history rides the
 -- audit journal).
 CREATE UNIQUE INDEX IF NOT EXISTS uq_compliance_pep_kyc
@@ -83,14 +83,14 @@ CREATE TABLE IF NOT EXISTS compliance.sanctions_screens (
 CREATE INDEX IF NOT EXISTS idx_compliance_screens_subject
     ON compliance.sanctions_screens (env_id, subject);
 
--- Declarative monitoring rules: threshold + aggregation window —
+-- Declarative monitoring rules: threshold + aggregation window -
 -- jurisdiction-registry-derived (never code).
 CREATE TABLE IF NOT EXISTS compliance.monitoring_rules (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     env_id      UUID NOT NULL,
     rule_code   TEXT NOT NULL,
     threshold   NUMERIC NOT NULL,
-    -- `aggregation_window` — `window` is a PostgreSQL reserved word;
+    -- `aggregation_window` - `window` is a PostgreSQL reserved word;
     -- greenfield rename per AGENTS.md (no migration).
     aggregation_window TEXT NOT NULL,
     enabled     BOOLEAN NOT NULL DEFAULT true,
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS compliance.monitoring_rules (
     UNIQUE (env_id, rule_code)
 );
 
--- Alerts: at most one per (subject, rule, window) — the unique index is
+-- Alerts: at most one per (subject, rule, window) - the unique index is
 -- the dedupe floor (DESIGN.md §8).
 CREATE TABLE IF NOT EXISTS compliance.alerts (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS compliance.cases (
 CREATE INDEX IF NOT EXISTS idx_compliance_cases_alert
     ON compliance.cases (alert_id);
 
--- Suspicious activities handed off to Reporting — report kinds use the
+-- Suspicious activities handed off to Reporting - report kinds use the
 -- shared ReportKind vocabulary (bank8-regulatory-contracts).
 CREATE TABLE IF NOT EXISTS compliance.suspicious_activities (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -142,12 +142,12 @@ CREATE TABLE IF NOT EXISTS compliance.suspicious_activities (
 -- ── Monitoring-rule threshold templates (JUR-REG-1) ───────────────────
 -- The jurisdiction registry's AML/CTF thresholds, mirrored as rule
 -- templates. The env-init consumer materializes the per-tenant rows from
--- the reporting registry at service-enable time (idempotent — mirrors
+-- the reporting registry at service-enable time (idempotent - mirrors
 -- ledger's internal-account seeding); these template rows carry the
 -- registry's values so a fresh tenant has the same defaults until the
--- registry updates them. Rule codes are generic AML families — no
+-- registry updates them. Rule codes are generic AML families - no
 -- jurisdiction or regulator names in code or rule codes.
-COMMENT ON TABLE compliance.monitoring_rules IS 'Per-tenant AML rules; thresholds derive from the jurisdiction registry (reporting.return_templates.definition.thresholds) — never code.';
+COMMENT ON TABLE compliance.monitoring_rules IS 'Per-tenant AML rules; thresholds derive from the jurisdiction registry (reporting.return_templates.definition.thresholds) - never code.';
 
 -- ── Env-scoped RLS (every table) ─────────────────────────────────────────
 ALTER TABLE compliance.customer_risk_profiles ENABLE ROW LEVEL SECURITY;
@@ -289,11 +289,11 @@ CREATE POLICY audit_journal_dml ON compliance.audit_journal
     USING (sentin8_context_initialized() AND env_id = sentin8_current_env_id())
     WITH CHECK (sentin8_context_initialized() AND env_id = sentin8_current_env_id());
 
--- ── Per-service role grants + search_path (F1 — §4.3e) ──────────────────
+-- ── Per-service role grants + search_path (F1 - §4.3e) ──────────────────
 -- The compliance service connects via its own PostgreSQL role
 -- (bank8_compliance_service, created + granted by `sentin8-cli vertical
 -- init/enroll` from this service's --print-registration
--- --section=pg_roles). Grants scoped to the OWN schema only — no blanket
+-- --section=pg_roles). Grants scoped to the OWN schema only - no blanket
 -- grants, no cross-schema grants (DESIGN.md §8: inputs are events or
 -- public-API reads, never ledger/payments/reporting tables).
 DO $$

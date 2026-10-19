@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:Compliance
 // SPDX-License-Identifier: Apache-2.0
 
-//! Compliance error responses — standard error format with error codes
+//! Compliance error responses - standard error format with error codes
 //! and HTTP status mappings, integrated with Axum via `into_response`.
 
 use axum::{

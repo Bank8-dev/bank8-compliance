@@ -3,7 +3,7 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:Compliance
 // SPDX-License-Identifier: Apache-2.0
 
-//! Sentin8 Compliance — AML/CTF: KYC/CDD, sanctions screening, transaction
+//! Sentin8 Compliance - AML/CTF: KYC/CDD, sanctions screening, transaction
 //! monitoring, alert/case lifecycle. See `services/compliance/DESIGN.md`.
 //! Boot runs on the platform `sentin8-shell` crate: registration flag, PQ
 //! provider, config, capped pool, PG18 check, state binding, OpenAPI

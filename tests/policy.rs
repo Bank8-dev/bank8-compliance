@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Sentin8:Policy wiring tests for Bank8:Compliance.
-//! Per the platform policy design §6 (Definition of Done) — proves the
+//! Per the platform policy design §6 (Definition of Done) - proves the
 //! compliance wiring with the REAL seeded scope-mirror text: no-set →
 //! deny; enforced no-match → deny; shadow never blocks; the mirror
 //! permits its own grants; M2M parity; platform-admin scopes pass;
@@ -139,7 +139,7 @@ fn platform_admin_scopes_pass() {
     }
 }
 
-/// Forbid beats permit — a tenant freeze on case conclusions (e.g. an
+/// Forbid beats permit - a tenant freeze on case conclusions (e.g. an
 /// audit hold) overrides the mirror.
 #[test]
 fn forbid_beats_permit() {

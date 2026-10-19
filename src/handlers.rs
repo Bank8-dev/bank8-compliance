@@ -3,10 +3,10 @@
 // SPDX-FileCopyrightText: Copyright Contributors to the Bank8:Compliance
 // SPDX-License-Identifier: Apache-2.0
 
-//! Compliance HTTP handlers — KYC/CDD, alerts, cases, and the
+//! Compliance HTTP handlers - KYC/CDD, alerts, cases, and the
 //! suspicious-activity handoff. See compliance DESIGN.md §4.
 //!
-//! Every handler: verify (steps 1–4) → Shield gate (step 5, the ONLY
+//! Every handler: verify (steps 1-4) → Shield gate (step 5, the ONLY
 //! gate) → same-transaction tenant context → explicit `WHERE env_id`
 //! (defense-in-depth) → commit → emit (membus → bus, DESIGN.md §2).
 
@@ -31,24 +31,24 @@ use crate::policy::Engine;
 pub struct AppState {
     pub config: Arc<ComplianceConfig>,
     pub pool: sqlx::PgPool,
-    /// Shield policy engine — step 5 is the ONLY gate: handlers verify
-    /// the token (steps 1–4) then evaluate a
+    /// Shield policy engine - step 5 is the ONLY gate: handlers verify
+    /// the token (steps 1-4) then evaluate a
     /// `bank8:compliance:<resource>:<action>` target; no JWT scope check
     /// remains.
     pub policy: Arc<Engine>,
-    /// Shared Sentin8:Policy admin surface (§3.6) — same engine instance
+    /// Shared Sentin8:Policy admin surface (§3.6) - same engine instance
     /// the request path evaluates.
     pub admin: sentin8::shield::admin::SharedAdminState,
-    /// MemBus handle (principles §4.7 — membus → bus → API): alert-queue
+    /// MemBus handle (principles §4.7 - membus → bus → API): alert-queue
     /// and screening state publishes newest-wins ephemeral refreshes so
     /// queue dashboards update surgically; durable `bank8:compliance:*`
     /// events (incl. `suspicious:detected`) ride the local outbox →
-    /// relay → Bus. Fail-soft — a Valkey outage only degrades refresh.
+    /// relay → Bus. Fail-soft - a Valkey outage only degrades refresh.
     pub membus: sentin8::membus::ServiceBus,
 }
 
 /// Set the transaction-local RLS tenant context on a connection. MUST be
-/// awaited on the same connection every subsequent tenant query runs on —
+/// awaited on the same connection every subsequent tenant query runs on -
 /// `set_config(..., true)` scopes the setting to the transaction
 /// (architecture-principles §4.3d).
 pub(crate) async fn set_tenant_context(conn: &mut sqlx::PgConnection, env_id: Uuid) {
@@ -58,11 +58,11 @@ pub(crate) async fn set_tenant_context(conn: &mut sqlx::PgConnection, env_id: Uu
         .await;
 }
 
-/// Emit a compliance event through both tiers (DESIGN.md §2 — membus →
+/// Emit a compliance event through both tiers (DESIGN.md §2 - membus →
 /// bus): the MemBus state refresh first (fail-soft, newest-wins), then
 /// the durable outbox row the shell relay drains to Bus
 /// `POST /v1/produce` (idempotency_key = row id). `suspicious:detected`
-/// reaches Reporting through this durable tier — Compliance never files
+/// reaches Reporting through this durable tier - Compliance never files
 /// and never touches Reporting's tables (DESIGN.md §8).
 pub(crate) async fn emit_event(
     state: &AppState,
@@ -97,7 +97,7 @@ pub struct KycResponse {
     pub status: String,
 }
 
-/// Request body for creating a KYC record — the customer id arrives in
+/// Request body for creating a KYC record - the customer id arrives in
 /// the path (`/v1/customers/{id}/kyc`); the body carries no duplicate of
 /// it.
 #[derive(Debug, Deserialize, ToSchema)]
@@ -126,7 +126,7 @@ pub struct OpenCaseRequest {
     pub assignee: String,
 }
 
-/// Request body for concluding a case as suspicious — the report kind
+/// Request body for concluding a case as suspicious - the report kind
 /// uses the shared `ReportKind` vocabulary.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct ConcludeCaseRequest {
@@ -162,11 +162,11 @@ fn row_to_alert(row: &sqlx::postgres::PgRow) -> AlertResponse {
     security(),
     tag = "meta",
 )]
-/// `GET /v1/health` — service health payload.
+/// `GET /v1/health` - service health payload.
 ///
 /// Carries the binary's build identity (`version`/`build`, BUILDID-1) so
 /// captain's monitor populates `make status`'s VERSION column for every
-/// instance — the consuming BINARY's identity, never a shared crate's.
+/// instance - the consuming BINARY's identity, never a shared crate's.
 pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
     let db_ok = sqlx::query("SELECT 1").execute(&state.pool).await.is_ok();
     Json(
@@ -176,7 +176,7 @@ pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
 
 // ── KYC ────────────────────────────────────────────────────────────────────
 
-/// `POST /v1/customers/{id}/kyc` — create a KYC record for a customer.
+/// `POST /v1/customers/{id}/kyc` - create a KYC record for a customer.
 #[utoipa::path(post, path = "/v1/customers/{id}/kyc", request_body = CreateKycRequest, responses((status = 200, body = KycResponse)))]
 pub async fn create_kyc(
     State(state): State<AppState>,
@@ -215,7 +215,7 @@ pub async fn create_kyc(
     Ok(Json(kyc))
 }
 
-/// `GET /v1/customers/{id}/kyc` — list a customer's KYC records.
+/// `GET /v1/customers/{id}/kyc` - list a customer's KYC records.
 #[utoipa::path(get, path = "/v1/customers/{id}/kyc", responses((status = 200, body = [KycResponse])))]
 pub async fn list_kyc(
     State(state): State<AppState>,
@@ -245,7 +245,7 @@ pub async fn list_kyc(
     Ok(Json(rows.iter().map(row_to_kyc).collect()))
 }
 
-/// Request body for disclosing a beneficial owner — identity by platform
+/// Request body for disclosing a beneficial owner - identity by platform
 /// reference only (a sentin8-secrets:// or identity-plane reference);
 /// document bytes and plaintext identity numbers never enter a bank8
 /// row (DESIGN.md §8 invariant).
@@ -263,8 +263,8 @@ pub struct BeneficialOwnerResponse {
     pub identity_ref: String,
 }
 
-/// `POST /v1/customers/{id}/beneficial-owners` — disclose a beneficial
-/// owner against a KYC record (idempotent per (kyc, identity_ref) —
+/// `POST /v1/customers/{id}/beneficial-owners` - disclose a beneficial
+/// owner against a KYC record (idempotent per (kyc, identity_ref) -
 /// re-disclosing the same owner converges to the same row).
 #[utoipa::path(post, path = "/v1/customers/{id}/beneficial-owners", request_body = DiscloseBeneficialOwnerRequest, responses((status = 200, body = BeneficialOwnerResponse)))]
 pub async fn disclose_beneficial_owner(
@@ -282,7 +282,7 @@ pub async fn disclose_beneficial_owner(
     )
     .await?;
     if !req.identity_ref.starts_with("sentin8-secrets://") {
-        return Err((StatusCode::UNPROCESSABLE_ENTITY, "identity_ref must be a sentin8-secrets:// reference — plaintext identity data is never stored".into()));
+        return Err((StatusCode::UNPROCESSABLE_ENTITY, "identity_ref must be a sentin8-secrets:// reference - plaintext identity data is never stored".into()));
     }
     let mut tx = state.pool.begin().await.map_err(crate::errors::err_db)?;
     set_tenant_context(&mut tx, a.env_id()).await;
@@ -331,7 +331,7 @@ pub async fn disclose_beneficial_owner(
     Ok(Json(bo))
 }
 
-/// `GET /v1/customers/{id}/beneficial-owners` — list the customer's
+/// `GET /v1/customers/{id}/beneficial-owners` - list the customer's
 /// disclosed beneficial owners (references only).
 #[utoipa::path(get, path = "/v1/customers/{id}/beneficial-owners", responses((status = 200, body = [BeneficialOwnerResponse])))]
 pub async fn list_beneficial_owners(
@@ -379,8 +379,8 @@ pub struct PepDeterminationRequest {
     pub is_pep: bool,
 }
 
-/// `POST /v1/customers/{id}/pep` — record a PEP (politically exposed
-/// person) determination. One live determination per KYC record — a
+/// `POST /v1/customers/{id}/pep` - record a PEP (politically exposed
+/// person) determination. One live determination per KYC record - a
 /// re-determination updates it in place (the latest determination is
 /// authoritative; history rides the audit journal).
 #[utoipa::path(post, path = "/v1/customers/{id}/pep", request_body = PepDeterminationRequest, responses((status = 200, body = serde_json::Value)))]
@@ -444,7 +444,7 @@ pub async fn record_pep_determination(
     Ok(Json(payload))
 }
 
-/// Request body for upserting the customer's AML risk rating — the
+/// Request body for upserting the customer's AML risk rating - the
 /// rationale is mandatory (a rating without its recorded reasoning is
 /// unauditable).
 #[derive(Debug, Deserialize, ToSchema)]
@@ -453,7 +453,7 @@ pub struct UpsertRiskProfileRequest {
     pub rationale: String,
 }
 
-/// `POST /v1/customers/{id}/risk-profile` — upsert the customer's AML
+/// `POST /v1/customers/{id}/risk-profile` - upsert the customer's AML
 /// risk rating (low/medium/high) with a recorded rationale. The rating
 /// drives monitoring intensity; a PEP determination forces at least
 /// `high` (a PEP can never sit below it).
@@ -481,7 +481,7 @@ pub async fn upsert_risk_profile(
     if req.rationale.trim().is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            "rationale is required — a rating without recorded reasoning is unauditable".into(),
+            "rationale is required - a rating without recorded reasoning is unauditable".into(),
         ));
     }
     let mut tx = state.pool.begin().await.map_err(crate::errors::err_db)?;
@@ -537,7 +537,7 @@ pub async fn upsert_risk_profile(
 
 // ── Alerts ────────────────────────────────────────────────────────────────
 
-/// `GET /v1/alerts` — list alerts, optionally by status.
+/// `GET /v1/alerts` - list alerts, optionally by status.
 #[utoipa::path(get, path = "/v1/alerts", params(ListAlertsQuery), responses((status = 200, body = [AlertResponse])))]
 pub async fn list_alerts(
     State(state): State<AppState>,
@@ -567,7 +567,7 @@ pub async fn list_alerts(
     Ok(Json(rows.iter().map(row_to_alert).collect()))
 }
 
-/// `POST /v1/alerts/{id}/case` — escalate an alert to a case with an
+/// `POST /v1/alerts/{id}/case` - escalate an alert to a case with an
 /// audited actor claim (the assignee). The alert transitions to
 /// `escalated` in the same transaction.
 #[utoipa::path(post, path = "/v1/alerts/{id}/case", request_body = OpenCaseRequest, responses((status = 200, body = serde_json::Value)))]
@@ -626,7 +626,7 @@ pub async fn open_case(
     Ok(Json(payload))
 }
 
-// ── Monitoring rules (CMP-CASE-1 surface — thresholds from the registry) ──
+// ── Monitoring rules (CMP-CASE-1 surface - thresholds from the registry) ──
 
 /// A monitoring rule as returned by the reads.
 #[derive(Debug, Serialize, ToSchema)]
@@ -638,9 +638,9 @@ pub struct MonitoringRuleResponse {
     pub enabled: bool,
 }
 
-/// `GET /v1/rules` — list the tenant's monitoring rules (thresholds
-/// derive from the jurisdiction registry — reporting's return-template
-/// definitions — materialized at env-init; never code).
+/// `GET /v1/rules` - list the tenant's monitoring rules (thresholds
+/// derive from the jurisdiction registry - reporting's return-template
+/// definitions - materialized at env-init; never code).
 #[utoipa::path(get, path = "/v1/rules", responses((status = 200, body = [MonitoringRuleResponse])))]
 pub async fn list_rules(
     State(state): State<AppState>,
@@ -677,7 +677,7 @@ pub async fn list_rules(
     ))
 }
 
-/// Request body for an alert-status transition (queue operations — the
+/// Request body for an alert-status transition (queue operations - the
 /// actor claim is audited via the caller's identity in the audit
 /// journal).
 #[derive(Debug, Deserialize, ToSchema)]
@@ -685,10 +685,10 @@ pub struct UpdateAlertStatusRequest {
     pub status: String,
 }
 
-/// `POST /v1/alerts/{id}/status` — queue operation on an alert (claim /
+/// `POST /v1/alerts/{id}/status` - queue operation on an alert (claim /
 /// review / close) with an audited actor: the caller's verified identity
 /// drives the journal entry; the transition is guarded against terminal
-/// states (closed alerts never reopen — a new detection raises a new
+/// states (closed alerts never reopen - a new detection raises a new
 /// alert).
 #[utoipa::path(post, path = "/v1/alerts/{id}/status", request_body = UpdateAlertStatusRequest, responses((status = 200, body = serde_json::Value), (status = 409)))]
 pub async fn update_alert_status(
@@ -747,7 +747,7 @@ pub async fn update_alert_status(
 
 // ── Cases ─────────────────────────────────────────────────────────────────
 
-/// `GET /v1/cases/{id}` — case detail with its alert.
+/// `GET /v1/cases/{id}` - case detail with its alert.
 #[utoipa::path(get, path = "/v1/cases/{id}", responses((status = 200, body = serde_json::Value)))]
 pub async fn get_case(
     State(state): State<AppState>,
@@ -786,9 +786,9 @@ pub async fn get_case(
     })))
 }
 
-/// `GET /v1/cases/{id}/evidence` — the case's investigation evidence:
+/// `GET /v1/cases/{id}/evidence` - the case's investigation evidence:
 /// the originating alert, every sanctions screen against its subject,
-/// and the customer's risk profile (when resolved). Read-only —
+/// and the customer's risk profile (when resolved). Read-only -
 /// evidence is the input to the conclude/dismiss decision, never
 /// mutated by it.
 #[utoipa::path(get, path = "/v1/cases/{id}/evidence", responses((status = 200, body = serde_json::Value)))]
@@ -857,16 +857,16 @@ pub async fn get_case_evidence(
     })))
 }
 
-/// Request body for dismissing a case — the reason is mandatory (a
+/// Request body for dismissing a case - the reason is mandatory (a
 /// dismissal without a recorded reason is unauditable).
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct DismissCaseRequest {
     pub reason: String,
 }
 
-/// `POST /v1/cases/{id}/dismiss` — dismiss a case as not reportable:
+/// `POST /v1/cases/{id}/dismiss` - dismiss a case as not reportable:
 /// the recorded reason lands in the case row and NO suspicious activity
-/// is emitted — Reporting never sees a dismissed case (a dismissed
+/// is emitted - Reporting never sees a dismissed case (a dismissed
 /// case is terminal; a new detection opens a new case).
 #[utoipa::path(post, path = "/v1/cases/{id}/dismiss", request_body = DismissCaseRequest, responses((status = 200, body = serde_json::Value), (status = 409), (status = 422)))]
 pub async fn dismiss_case(
@@ -886,7 +886,7 @@ pub async fn dismiss_case(
     if req.reason.trim().is_empty() {
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
-            "dismissal reason is required — a dismissal without a recorded reason is unauditable"
+            "dismissal reason is required - a dismissal without a recorded reason is unauditable"
                 .into(),
         ));
     }
@@ -927,11 +927,11 @@ pub async fn dismiss_case(
     Ok(Json(payload))
 }
 
-/// `POST /v1/cases/{id}/conclude` — conclude a case as reportable: the
+/// `POST /v1/cases/{id}/conclude` - conclude a case as reportable: the
 /// report kind lands in `suspicious_activities` and
-/// `bank8:compliance:suspicious:detected` is emitted exactly once —
+/// `bank8:compliance:suspicious:detected` is emitted exactly once -
 /// Reporting files it through its own durable consume (detection here,
-/// filing there — the single-filing-executor rule, DESIGN.md §8).
+/// filing there - the single-filing-executor rule, DESIGN.md §8).
 #[utoipa::path(post, path = "/v1/cases/{id}/conclude", request_body = ConcludeCaseRequest, responses((status = 200, body = serde_json::Value)))]
 pub async fn conclude_case(
     State(state): State<AppState>,
@@ -939,7 +939,7 @@ pub async fn conclude_case(
     Path(id): Path<Uuid>,
     Json(req): Json<ConcludeCaseRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
-    // Report-kind vocabulary comes from the shared contracts crate —
+    // Report-kind vocabulary comes from the shared contracts crate -
     // closed enum, validated before any write.
     let kind = serde_json::from_value::<bank8::regulatory::contracts::ReportKind>(
         serde_json::Value::String(req.report_kind.clone()),
@@ -978,7 +978,7 @@ pub async fn conclude_case(
             format!("case {id} not concludable (missing or terminal)"),
         ));
     };
-    // At-most-once per (case, report kind) — the unique index is the
+    // At-most-once per (case, report kind) - the unique index is the
     // dedupe floor.
     let activity_id = sqlx::query_scalar::<_, Uuid>(
         r#"INSERT INTO suspicious_activities (env_id, case_id, report_kind)
