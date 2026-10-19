@@ -383,13 +383,13 @@ pub struct PepDeterminationRequest {
 /// person) determination. One live determination per KYC record - a
 /// re-determination updates it in place (the latest determination is
 /// authoritative; history rides the audit journal).
-#[utoipa::path(post, path = "/v1/customers/{id}/pep", request_body = PepDeterminationRequest, responses((status = 200, body = serde_json::Value)))]
+#[utoipa::path(post, path = "/v1/customers/{id}/pep", request_body = PepDeterminationRequest, responses((status = 200, body = PepRecorded)))]
 pub async fn record_pep_determination(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(customer_id): Path<Uuid>,
     Json(req): Json<PepDeterminationRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<PepRecorded>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -428,17 +428,17 @@ pub async fn record_pep_determination(
     .fetch_one(&mut *tx)
     .await
     .map_err(crate::errors::err_db)?;
-    let payload = serde_json::json!({
-        "id": row.get::<Uuid, _>("id"),
-        "kyc_id": row.get::<Uuid, _>("kyc_id"),
-        "is_pep": row.get::<bool, _>("is_pep"),
-    });
+    let payload = PepRecorded {
+        id: row.get::<Uuid, _>("id"),
+        kyc_id: row.get::<Uuid, _>("kyc_id"),
+        is_pep: row.get::<bool, _>("is_pep"),
+    };
     tx.commit().await.map_err(crate::errors::err_db)?;
     emit_event(
         &state,
         a.env_id(),
         "bank8:compliance:kyc:pep:determined",
-        payload.clone(),
+        serde_json::to_value(&payload).unwrap_or_default(),
     )
     .await;
     Ok(Json(payload))
@@ -457,13 +457,13 @@ pub struct UpsertRiskProfileRequest {
 /// risk rating (low/medium/high) with a recorded rationale. The rating
 /// drives monitoring intensity; a PEP determination forces at least
 /// `high` (a PEP can never sit below it).
-#[utoipa::path(post, path = "/v1/customers/{id}/risk-profile", request_body = UpsertRiskProfileRequest, responses((status = 200, body = serde_json::Value), (status = 422)))]
+#[utoipa::path(post, path = "/v1/customers/{id}/risk-profile", request_body = UpsertRiskProfileRequest, responses((status = 200, body = RiskProfileUpserted), (status = 422)))]
 pub async fn upsert_risk_profile(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(customer_id): Path<Uuid>,
     Json(req): Json<UpsertRiskProfileRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<RiskProfileUpserted>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -518,18 +518,18 @@ pub async fn upsert_risk_profile(
     )
     .bind(a.env_id()).bind(customer_id).bind(&rating).bind(&req.rationale)
     .fetch_one(&mut *tx).await.map_err(crate::errors::err_db)?;
-    let payload = serde_json::json!({
-        "id": row.get::<Uuid, _>("id"),
-        "customer_id": customer_id,
-        "rating": row.get::<String, _>("rating"),
-        "rationale": row.get::<String, _>("rationale"),
-    });
+    let payload = RiskProfileUpserted {
+        id: row.get::<Uuid, _>("id"),
+        customer_id,
+        rating: row.get::<String, _>("rating"),
+        rationale: row.get::<String, _>("rationale"),
+    };
     tx.commit().await.map_err(crate::errors::err_db)?;
     emit_event(
         &state,
         a.env_id(),
         "bank8:compliance:kyc:risk_profile:upserted",
-        payload.clone(),
+        serde_json::to_value(&payload).unwrap_or_default(),
     )
     .await;
     Ok(Json(payload))
@@ -570,13 +570,13 @@ pub async fn list_alerts(
 /// `POST /v1/alerts/{id}/case` - escalate an alert to a case with an
 /// audited actor claim (the assignee). The alert transitions to
 /// `escalated` in the same transaction.
-#[utoipa::path(post, path = "/v1/alerts/{id}/case", request_body = OpenCaseRequest, responses((status = 200, body = serde_json::Value)))]
+#[utoipa::path(post, path = "/v1/alerts/{id}/case", request_body = OpenCaseRequest, responses((status = 200, body = CaseOpened)))]
 pub async fn open_case(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(alert_id): Path<Uuid>,
     Json(req): Json<OpenCaseRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<CaseOpened>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -614,13 +614,12 @@ pub async fn open_case(
     .await
     .map_err(crate::errors::err_db)?;
     conn.commit().await.map_err(crate::errors::err_db)?;
-    let payload =
-        serde_json::json!({ "case_id": case_id, "alert_id": alert_id, "assignee": req.assignee });
+    let payload = CaseOpened { case_id, alert_id, assignee: Some(req.assignee.clone()) };
     emit_event(
         &state,
         a.env_id(),
         "bank8:compliance:case:opened",
-        payload.clone(),
+        serde_json::to_value(&payload).unwrap_or_default(),
     )
     .await;
     Ok(Json(payload))
@@ -690,13 +689,13 @@ pub struct UpdateAlertStatusRequest {
 /// drives the journal entry; the transition is guarded against terminal
 /// states (closed alerts never reopen - a new detection raises a new
 /// alert).
-#[utoipa::path(post, path = "/v1/alerts/{id}/status", request_body = UpdateAlertStatusRequest, responses((status = 200, body = serde_json::Value), (status = 409)))]
+#[utoipa::path(post, path = "/v1/alerts/{id}/status", request_body = UpdateAlertStatusRequest, responses((status = 200, body = AlertStatusUpdated), (status = 409)))]
 pub async fn update_alert_status(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(alert_id): Path<Uuid>,
     Json(req): Json<UpdateAlertStatusRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<AlertStatusUpdated>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -730,16 +729,16 @@ pub async fn update_alert_status(
             format!("alert {alert_id} not updatable (missing or terminal)"),
         ));
     };
-    let payload = serde_json::json!({
-        "id": row.get::<Uuid, _>("id"),
-        "status": row.get::<String, _>("status"),
-    });
+    let payload = AlertStatusUpdated {
+        id: row.get::<Uuid, _>("id"),
+        status: row.get::<String, _>("status"),
+    };
     tx.commit().await.map_err(crate::errors::err_db)?;
     emit_event(
         &state,
         a.env_id(),
         "bank8:compliance:alert:updated",
-        payload.clone(),
+        serde_json::to_value(&payload).unwrap_or_default(),
     )
     .await;
     Ok(Json(payload))
@@ -748,12 +747,12 @@ pub async fn update_alert_status(
 // ── Cases ─────────────────────────────────────────────────────────────────
 
 /// `GET /v1/cases/{id}` - case detail with its alert.
-#[utoipa::path(get, path = "/v1/cases/{id}", responses((status = 200, body = serde_json::Value)))]
+#[utoipa::path(get, path = "/v1/cases/{id}", responses((status = 200, body = CaseDetail)))]
 pub async fn get_case(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<CaseDetail>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -777,13 +776,13 @@ pub async fn get_case(
     let Some(row) = row else {
         return Err((StatusCode::NOT_FOUND, format!("case {id} not found")));
     };
-    Ok(Json(serde_json::json!({
-        "id": row.get::<Uuid, _>("id"),
-        "status": row.get::<String, _>("status"),
-        "assignee": row.get::<Option<String>, _>("assignee"),
-        "alert_id": row.get::<Uuid, _>("alert_id"),
-        "subject": row.get::<String, _>("subject"),
-    })))
+    Ok(Json(CaseDetail {
+        id: row.get::<Uuid, _>("id"),
+        status: row.get::<String, _>("status"),
+        assignee: row.get::<Option<String>, _>("assignee"),
+        alert_id: row.get::<Uuid, _>("alert_id"),
+        subject: row.get::<String, _>("subject"),
+    }))
 }
 
 /// `GET /v1/cases/{id}/evidence` - the case's investigation evidence:
@@ -791,12 +790,12 @@ pub async fn get_case(
 /// and the customer's risk profile (when resolved). Read-only -
 /// evidence is the input to the conclude/dismiss decision, never
 /// mutated by it.
-#[utoipa::path(get, path = "/v1/cases/{id}/evidence", responses((status = 200, body = serde_json::Value)))]
+#[utoipa::path(get, path = "/v1/cases/{id}/evidence", responses((status = 200, body = CaseEvidenceResponse)))]
 pub async fn get_case_evidence(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<CaseEvidenceResponse>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -835,26 +834,30 @@ pub async fn get_case_evidence(
     .await
     .map_err(crate::errors::err_db)?;
 
-    Ok(Json(serde_json::json!({
-        "case": {
-            "id": case.get::<Uuid, _>("id"),
-            "status": case.get::<String, _>("status"),
-            "assignee": case.get::<Option<String>, _>("assignee"),
-            "alert_id": case.get::<Uuid, _>("alert_id"),
+    Ok(Json(CaseEvidenceResponse {
+        case: CaseDetail {
+            id: case.get::<Uuid, _>("id"),
+            status: case.get::<String, _>("status"),
+            assignee: case.get::<Option<String>, _>("assignee"),
+            alert_id: case.get::<Uuid, _>("alert_id"),
+            subject: subject.clone(),
         },
-        "alert": {
-            "subject": subject,
-            "source": case.get::<String, _>("source"),
-            "source_ref": case.get::<String, _>("source_ref"),
-            "window": case.get::<String, _>("window"),
+        alert: EvidenceAlert {
+            subject,
+            source: case.get::<String, _>("source"),
+            source_ref: case.get::<String, _>("source_ref"),
+            window: case.get::<String, _>("window"),
         },
-        "sanctions_screens": screens.iter().map(|s| serde_json::json!({
-            "id": s.get::<Uuid, _>("id"),
-            "result": s.get::<String, _>("result"),
-            "watchlist_snapshot": s.get::<Option<String>, _>("watchlist_snapshot"),
-            "created_at": s.get::<chrono::DateTime<chrono::Utc>, _>("created_at"),
-        })).collect::<Vec<_>>(),
-    })))
+        sanctions_screens: screens
+            .iter()
+            .map(|screen| SanctionScreen {
+                id: screen.get::<Uuid, _>("id"),
+                result: screen.get::<String, _>("result"),
+                watchlist_snapshot: screen.get::<Option<String>, _>("watchlist_snapshot"),
+                created_at: screen.get::<chrono::DateTime<chrono::Utc>, _>("created_at"),
+            })
+            .collect::<Vec<_>>(),
+    }))
 }
 
 /// Request body for dismissing a case - the reason is mandatory (a
@@ -868,13 +871,13 @@ pub struct DismissCaseRequest {
 /// the recorded reason lands in the case row and NO suspicious activity
 /// is emitted - Reporting never sees a dismissed case (a dismissed
 /// case is terminal; a new detection opens a new case).
-#[utoipa::path(post, path = "/v1/cases/{id}/dismiss", request_body = DismissCaseRequest, responses((status = 200, body = serde_json::Value), (status = 409), (status = 422)))]
+#[utoipa::path(post, path = "/v1/cases/{id}/dismiss", request_body = DismissCaseRequest, responses((status = 200, body = CaseDismissed), (status = 409), (status = 422)))]
 pub async fn dismiss_case(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
     Json(req): Json<DismissCaseRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<CaseDismissed>, (StatusCode, String)> {
     let a = auth::verify_token(&state.config, &headers).await?;
     crate::policy::require(
         &state.policy,
@@ -909,19 +912,19 @@ pub async fn dismiss_case(
             format!("case {id} not dismissable (missing or terminal)"),
         ));
     };
-    let payload = serde_json::json!({
-        "id": row.get::<Uuid, _>("id"),
-        "alert_id": row.get::<Uuid, _>("alert_id"),
-        "status": "dismissed",
-        "reason": req.reason,
-        "dismissed_by": a.claims.sub,
-    });
+    let payload = CaseDismissed {
+        id: row.get::<Uuid, _>("id"),
+        alert_id: row.get::<Uuid, _>("alert_id"),
+        status: "dismissed".to_string(),
+        reason: Some(req.reason.clone()),
+        dismissed_by: a.claims.sub.clone(),
+    };
     tx.commit().await.map_err(crate::errors::err_db)?;
     emit_event(
         &state,
         a.env_id(),
         "bank8:compliance:case:dismissed",
-        payload.clone(),
+        serde_json::to_value(&payload).unwrap_or_default(),
     )
     .await;
     Ok(Json(payload))
@@ -932,13 +935,13 @@ pub async fn dismiss_case(
 /// `bank8:compliance:suspicious:detected` is emitted exactly once -
 /// Reporting files it through its own durable consume (detection here,
 /// filing there - the single-filing-executor rule, DESIGN.md §8).
-#[utoipa::path(post, path = "/v1/cases/{id}/conclude", request_body = ConcludeCaseRequest, responses((status = 200, body = serde_json::Value)))]
+#[utoipa::path(post, path = "/v1/cases/{id}/conclude", request_body = ConcludeCaseRequest, responses((status = 200, body = CaseConcluded)))]
 pub async fn conclude_case(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<Uuid>,
     Json(req): Json<ConcludeCaseRequest>,
-) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+) -> Result<Json<CaseConcluded>, (StatusCode, String)> {
     // Report-kind vocabulary comes from the shared contracts crate -
     // closed enum, validated before any write.
     let kind = serde_json::from_value::<bank8::regulatory::contracts::ReportKind>(
@@ -993,18 +996,149 @@ pub async fn conclude_case(
     .await
     .map_err(crate::errors::err_db)?;
     conn.commit().await.map_err(crate::errors::err_db)?;
-    let payload = serde_json::json!({
-        "activity_id": activity_id,
-        "case_id": id,
-        "alert_id": row.get::<Uuid, _>("alert_id"),
-        "report_kind": kind_json,
-    });
+    let payload = CaseConcluded {
+        activity_id,
+        case_id: id,
+        alert_id: row.get::<Uuid, _>("alert_id"),
+        report_kind: kind_json.clone(),
+    };
     emit_event(
         &state,
         a.env_id(),
         "bank8:compliance:suspicious:detected",
-        payload.clone(),
+        serde_json::to_value(&payload).unwrap_or_default(),
     )
     .await;
     Ok(Json(payload))
 }
+// ── Typed case/PEP/risk responses (OAPEC-9) ────────────────────────────
+
+/// PEP determination recorded.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct PepRecorded {
+    /// The alert id (the PEP record anchors on it).
+    pub id: uuid::Uuid,
+    /// The KYC record id.
+    pub kyc_id: uuid::Uuid,
+    /// Whether the subject was determined a PEP.
+    pub is_pep: bool,
+}
+
+/// Risk profile upserted.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct RiskProfileUpserted {
+    /// The profile row id.
+    pub id: uuid::Uuid,
+    /// The customer of the profile.
+    pub customer_id: uuid::Uuid,
+    /// The assigned rating.
+    pub rating: String,
+    /// The analyst rationale.
+    pub rationale: String,
+}
+
+/// Case opened ack.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct CaseOpened {
+    /// The new case id.
+    pub case_id: uuid::Uuid,
+    /// The originating alert.
+    pub alert_id: uuid::Uuid,
+    /// The assignee.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<String>,
+}
+
+/// Alert-status update ack.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct AlertStatusUpdated {
+    /// The alert id.
+    pub id: uuid::Uuid,
+    /// The new status.
+    pub status: String,
+}
+
+/// Case dismissed ack.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct CaseDismissed {
+    /// The case id.
+    pub id: uuid::Uuid,
+    /// The originating alert.
+    pub alert_id: uuid::Uuid,
+    /// Always `dismissed`.
+    pub status: String,
+    /// The dismissal reason.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// The dismissing operator.
+    pub dismissed_by: String,
+}
+
+/// Case concluded ack.
+#[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]
+pub struct CaseConcluded {
+    /// The created activity id.
+    pub activity_id: uuid::Uuid,
+    /// The case id.
+    pub case_id: uuid::Uuid,
+    /// The originating alert.
+    pub alert_id: uuid::Uuid,
+    /// The report kind the activity carries.
+    pub report_kind: serde_json::Value,
+}
+
+/// An open case detail (`GET /v1/cases/{id}`).
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct CaseDetail {
+    /// The case id.
+    pub id: uuid::Uuid,
+    /// Case status.
+    pub status: String,
+    /// The assignee.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<String>,
+    /// The originating alert.
+    pub alert_id: uuid::Uuid,
+    /// The case subject.
+    pub subject: String,
+}
+
+/// The case-evidence envelope (`GET /v1/cases/{id}/evidence`).
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct CaseEvidenceResponse {
+    /// The case detail.
+    pub case: CaseDetail,
+    /// The alert context rows.
+    pub alert: EvidenceAlert,
+    /// The sanctions screens performed on the subject.
+    pub sanctions_screens: Vec<SanctionScreen>,
+}
+
+/// The alert context inside the evidence envelope.
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct EvidenceAlert {
+    /// The alert subject (name/text).
+    pub subject: String,
+    /// The screening source.
+    pub source: String,
+    /// The source reference id.
+    pub source_ref: String,
+    /// The screening window.
+    pub window: String,
+}
+
+/// One sanctions screen row.
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct SanctionScreen {
+    /// The screen row id.
+    pub id: uuid::Uuid,
+    /// The screen result.
+    pub result: String,
+    /// The watchlist snapshot document.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub watchlist_snapshot: Option<String>,
+    /// Screen instant.
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+
