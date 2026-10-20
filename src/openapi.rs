@@ -68,4 +68,5 @@ use crate::handlers;
         (name = "policy", description = "Shield policy administration (shared surface)"),
         (name = "compliance", description = "Bank8:Compliance - AML/CTF: KYC/CDD, sanctions screening, transaction monitoring, alert/case lifecycle"),
     ),
-)]pub struct ComplianceOpenApi;
+)]
+pub struct ComplianceOpenApi;

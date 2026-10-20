@@ -614,7 +614,11 @@ pub async fn open_case(
     .await
     .map_err(crate::errors::err_db)?;
     conn.commit().await.map_err(crate::errors::err_db)?;
-    let payload = CaseOpened { case_id, alert_id, assignee: Some(req.assignee.clone()) };
+    let payload = CaseOpened {
+        case_id,
+        alert_id,
+        assignee: Some(req.assignee.clone()),
+    };
     emit_event(
         &state,
         a.env_id(),
@@ -1140,5 +1144,3 @@ pub struct SanctionScreen {
     /// Screen instant.
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
-
-
