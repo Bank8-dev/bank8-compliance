@@ -164,7 +164,7 @@ fn row_to_alert(row: &sqlx::postgres::PgRow) -> AlertResponse {
 )]
 /// `GET /v1/health` - service health payload.
 ///
-/// Carries the binary's build identity (`version`/`build`, BUILDID-1) so
+/// Carries the binary's build identity (`version`/`build`,) so
 /// captain's monitor populates `make status`'s VERSION column for every
 /// instance - the consuming BINARY's identity, never a shared crate's.
 pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
@@ -1015,7 +1015,7 @@ pub async fn conclude_case(
     .await;
     Ok(Json(payload))
 }
-// ── Typed case/PEP/risk responses (OAPEC-9) ────────────────────────────
+// ── Typed case/PEP/risk responses ────────────────────────────
 
 /// PEP determination recorded.
 #[derive(Debug, Clone, serde::Serialize, utoipa::ToSchema)]

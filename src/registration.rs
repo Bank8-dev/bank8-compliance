@@ -42,7 +42,7 @@ const M2M_GRANTS: &[M2mGrant] = &[
             "sentin8:stat:measure",
         ],
     },
-    // Shield hot-reload consumer (BUSPOLICY-1 - see bank8-reporting).
+    // Shield hot-reload consumer (- see bank8-reporting).
     M2mGrant {
         workload: "bank8:compliance-policy",
         scopes: &["sentin8:bus:consume", "sentin8:stat:measure"],

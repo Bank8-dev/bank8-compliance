@@ -113,7 +113,7 @@ fn cases_page() -> AdminUiPage {
 
 /// GET /v1/admin/overview - the data endpoint behind the overview page:
 /// alert/case counts for the tenant env.
-/// Overview counters for the compliance admin landing page (OAPEC-9 typed body).
+/// Overview counters for the compliance admin landing page (typed body).
 #[derive(Debug, serde::Serialize, utoipa::ToSchema)]
 pub struct AdminOverviewStats {
     /// Open alerts.
