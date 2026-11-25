@@ -18,7 +18,8 @@
       "telemetry_property": {
         "slug": "compliance",
         "name": "Bank8:Compliance Telemetry"
-      }
+      },
+      "exposure": "internal"
     }
   ]
 }
